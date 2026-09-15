@@ -88,7 +88,7 @@ export default function DashboardPage() {
           <StatCard label="Active Orgs" value={loading ? "—" : dash?.organizations.active ?? 0} sub="isActive" icon={CheckCircle2} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
           <StatCard label="Expiring Soon" value={loading ? "—" : expiringSoon} sub="within 30 days" icon={AlertTriangle} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
           <StatCard label="Pending Payments" value={loading ? "—" : dash?.pendingPayments ?? 0} sub="awaiting" icon={CreditCard} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
-          <StatCard label="MTD Paid" value={loading ? "—" : formatCurrency(dash?.revenueMtd.amount ?? 0, dash?.revenueMtd.currency)} sub={`${dash?.revenueMtd.paidPaymentCount ?? 0} payments`} icon={CreditCard} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
+          <StatCard label="Paid this month" value={loading ? "—" : formatCurrency(dash?.revenueMtd.amount ?? 0, dash?.revenueMtd.currency)} sub={`${dash?.revenueMtd.paidPaymentCount ?? 0} payments`} icon={CreditCard} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
           <StatCard label="Active Referrals" value={loading ? "—" : dash?.activeReferrals ?? 0} icon={Tag} iconBg="#eff6ff" iconColor="#2563eb" loading={loading} />
         </div>
 
