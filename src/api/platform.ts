@@ -269,10 +269,12 @@ export interface PlatformPlanTemplate {
     maxStaff?: number | null;
     maxCustomers?: number | null;
   };
+  publicVisible?: boolean;
 }
 
 export interface PlatformPlanOverride {
   planName?: string;
+  publicVisible?: boolean;
   limits?: {
     maxBranches?: number | null;
     maxStaff?: number | null;
@@ -280,18 +282,66 @@ export interface PlatformPlanOverride {
   };
 }
 
-export async function getPlatformPlans(): Promise<{
+export interface PlatformPlansPricing {
+  editableViaPlatformPlansApi: readonly string[];
+  source: "environment" | "platform_settings" | string;
+  currency: string;
+  termBasePrices: Record<string, number>;
+  planMultipliers: Record<string, number>;
+  addOns: {
+    extraBranchPrice: number;
+    extraUserPrice: number;
+    onboardingFee: number;
+    referralDiscount: number;
+  };
+  gstPercent: number;
+  envKeys?: readonly string[];
+}
+
+export interface PlatformPlansResponse {
   plans: PlatformPlanTemplate[];
   overrides: Partial<Record<string, PlatformPlanOverride>>;
-}> {
+  pricing: PlatformPlansPricing;
+}
+
+export async function getPlatformPlans(): Promise<PlatformPlansResponse> {
   return apiClient.get("/api/platform/plans");
 }
 
-export async function putPlatformPlans(planOverrides: Partial<Record<string, PlatformPlanOverride>>): Promise<{
-  plans: PlatformPlanTemplate[];
-  overrides: Partial<Record<string, PlatformPlanOverride>>;
-}> {
-  return apiClient.put("/api/platform/plans", { planOverrides });
+export async function putPlatformPlans(input: {
+  planOverrides?: Partial<Record<string, PlatformPlanOverride>>;
+  pricing?: {
+    currency?: string;
+    gstPercent?: number;
+    termBasePrices?: Partial<Record<12 | 24 | 36 | 60, number>>;
+    planMultipliers?: Partial<Record<string, number>>;
+    addOns?: Partial<{
+      extraBranchPrice: number;
+      extraUserPrice: number;
+      onboardingFee: number;
+      referralDiscount: number;
+    }>;
+  };
+}): Promise<PlatformPlansResponse> {
+  return apiClient.put("/api/platform/plans", input);
+}
+
+export async function createPlatformPlan(input: {
+  planCode: string;
+  planName: string;
+  limits?: {
+    maxBranches?: number | null;
+    maxStaff?: number | null;
+    maxCustomers?: number | null;
+  };
+  publicVisible?: boolean;
+  multiplier?: number;
+}): Promise<PlatformPlansResponse> {
+  return apiClient.post("/api/platform/plans", input);
+}
+
+export async function deletePlatformPlan(planCode: string): Promise<PlatformPlansResponse> {
+  return apiClient.delete(`/api/platform/plans/${encodeURIComponent(planCode)}`);
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

@@ -41,13 +41,16 @@ export function GraceStatusBadge({ status }: { status: GraceOrLockStatus | undef
 }
 
 export function PlanBadge({ planCode }: { planCode: PlanCode }) {
-  const map: Record<PlanCode, { label: string; variant: "default" | "secondary" | "outline" | "info" }> = {
+  const map: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "info" }> = {
     STARTER: { label: "Starter", variant: "secondary" },
     GROWTH: { label: "Growth", variant: "info" },
     BUSINESS: { label: "Business", variant: "default" },
     ENTERPRISE: { label: "Enterprise", variant: "default" },
     CUSTOM: { label: "Custom", variant: "outline" },
   };
-  const cfg = map[planCode] ?? { label: planCode, variant: "outline" };
+  const cfg = map[planCode] ?? {
+    label: planCode.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    variant: "outline" as const,
+  };
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }

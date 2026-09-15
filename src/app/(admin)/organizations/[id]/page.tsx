@@ -31,7 +31,7 @@ import {
   verifyPayment,
   markPaid,
 } from "@/api/organizations";
-import { suspendOrg, restoreOrg } from "@/api/platform";
+import { getPlatformPlans, suspendOrg, restoreOrg } from "@/api/platform";
 import {
   formatCurrency,
   formatDate,
@@ -323,6 +323,13 @@ export default function OrgDetailPage() {
   const [patching, setPatching] = useState(false);
   const [patchStatus, setPatchStatus] = useState<string>("");
   const [patchPlan, setPatchPlan] = useState<PlanCode>("STARTER");
+  const [planOptions, setPlanOptions] = useState<{ value: string; label: string }[]>([
+    { value: "STARTER", label: "STARTER" },
+    { value: "GROWTH", label: "GROWTH" },
+    { value: "BUSINESS", label: "BUSINESS" },
+    { value: "ENTERPRISE", label: "ENTERPRISE" },
+    { value: "CUSTOM", label: "CUSTOM" },
+  ]);
   const [patchNotes, setPatchNotes] = useState("");
 
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
@@ -349,6 +356,18 @@ export default function OrgDetailPage() {
   }
 
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    getPlatformPlans()
+      .then((res) => {
+        const opts = res.plans.map((p) => ({
+          value: p.planCode,
+          label: `${p.planCode} — ${p.planName}`,
+        }));
+        if (opts.length) setPlanOptions(opts);
+      })
+      .catch(() => { /* keep defaults */ });
+  }, []);
 
   async function handlePatchSubscription() {
     if (!org) return;
@@ -564,7 +583,11 @@ export default function OrgDetailPage() {
                     value={patchPlan}
                     onChange={(v) => setPatchPlan(v as PlanCode)}
                     disabled={patching}
-                    options={["STARTER","GROWTH","BUSINESS","ENTERPRISE","CUSTOM"].map((p) => ({ value: p, label: p }))}
+                    options={
+                      planOptions.some((o) => o.value === patchPlan)
+                        ? planOptions
+                        : [{ value: patchPlan, label: patchPlan }, ...planOptions]
+                    }
                   />
                 </FormField>
                 <FormField label="Status">

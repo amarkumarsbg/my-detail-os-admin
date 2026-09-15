@@ -27,7 +27,8 @@ export interface AuthSession {
 
 // ─── Subscription Enums ──────────────────────────────────────────────────────
 
-export type PlanCode = "STARTER" | "GROWTH" | "BUSINESS" | "ENTERPRISE" | "CUSTOM";
+/** Dynamic plan code (was fixed enum; now free-form e.g. STARTER, PRO_PLUS). */
+export type PlanCode = string;
 
 export type SubscriptionStatus = "ACTIVE" | "PAST_DUE" | "EXPIRED" | "CANCELLED";
 
