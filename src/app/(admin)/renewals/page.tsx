@@ -5,7 +5,7 @@ import { RefreshCw } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FilterBar } from "@/components/shared/filter-bar";
+import { FilterBar, FilterSelect } from "@/components/shared/filter-bar";
 import { AdminTable, THead, Th, TBody, Tr, Td, TableFooter, AdminTableSkeleton } from "@/components/shared/admin-table";
 import { PaymentStatusBadge } from "@/components/shared/status-badges";
 import { listPlatformRenewals, type PlatformRenewalRow } from "@/api/platform";
@@ -17,6 +17,8 @@ export default function RenewalsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterPlan, setFilterPlan] = useState("all");
+
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
@@ -26,17 +28,35 @@ export default function RenewalsPage() {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return !q ? rows : rows.filter((r) => r.organizationName.toLowerCase().includes(q) || r.billNumber.toLowerCase().includes(q));
-  }, [rows, search]);
+    let result = rows;
+    if (filterPlan !== "all") {
+      result = result.filter(r => r.planName.toUpperCase() === filterPlan || r.planName.toLowerCase() === filterPlan.toLowerCase());
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((r) => r.organizationName.toLowerCase().includes(q) || r.billNumber.toLowerCase().includes(q));
+    }
+    return result;
+  }, [rows, search, filterPlan]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Topbar title="Renewals" description={`${rows.length} renewal records`} />
-      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search org or bill…" onRefresh={() => load(true)} refreshing={refreshing} />
+      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search org or bill…" onRefresh={() => load(true)} refreshing={refreshing}>
+        <FilterSelect value={filterPlan} onChange={setFilterPlan} options={[
+          { value: "all", label: "All Plans" },
+          { value: "STARTER", label: "Starter" },
+          { value: "GROWTH", label: "Growth" },
+          { value: "BUSINESS", label: "Business" },
+          { value: "ENTERPRISE", label: "Enterprise" },
+          { value: "CUSTOM", label: "Custom" },
+        ]} />
+      </FilterBar>
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: "12px" }}><ErrorBanner message={error} onRetry={load} /></div>}
-        {loading ? <AdminTableSkeleton rows={8} cols={8} /> : filtered.length === 0 ? (
+        {loading ? <AdminTableSkeleton rows={8} cols={9} /> : filtered.length === 0 ? (
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px" }}><EmptyState icon={RefreshCw} title="No renewals found" /></div>
         ) : (
           <>

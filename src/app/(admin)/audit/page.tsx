@@ -13,6 +13,7 @@ import { formatDateTime } from "@/lib/utils";
 
 export default function AuditPage() {
   const [rows, setRows] = useState<PlatformAuditRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -22,21 +23,30 @@ export default function AuditPage() {
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
-    try { const res = await listPlatformAudit({ limit: 200, action: actionFilter || undefined }); setRows(res.logs); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to load"); }
-    finally { setLoading(false); setRefreshing(false); }
+    try {
+      const res = await listPlatformAudit({ limit: 200, action: actionFilter || undefined });
+      setRows(res.logs);
+      setTotal(res.total);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      <Topbar title="Audit Logs" description={`${rows.length} platform events`} />
+      <Topbar title="Audit Logs" description={`${total} platform events`} />
       <FilterBar searchValue={actionFilter} onSearch={setActionFilter} searchPlaceholder="Filter by action…" onRefresh={() => load(true)} refreshing={refreshing} />
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: "12px" }}><ErrorBanner message={error} onRetry={load} /></div>}
         {loading ? <AdminTableSkeleton rows={8} cols={5} /> : rows.length === 0 ? (
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px" }}><EmptyState icon={ClipboardList} title="No audit events found" /></div>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px" }}>
+            <EmptyState icon={ClipboardList} title="No audit events found" description="No platform audit logs match the current criteria." />
+          </div>
         ) : (
           <>
             <AdminTable>
@@ -47,7 +57,15 @@ export default function AuditPage() {
                     <Tr onClick={() => setExpanded((prev) => prev === r.id ? null : r.id)}>
                       <Td><span style={{ color: "var(--muted-foreground)", display: "flex" }}>{expanded === r.id ? <ChevronDown style={{ width: "14px", height: "14px" }} /> : <ChevronRight style={{ width: "14px", height: "14px" }} />}</span></Td>
                       <Td><code style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: 600, color: "#1e40af", background: "#eff6ff", padding: "2px 6px", borderRadius: "4px" }}>{r.action}</code></Td>
-                      <Td><Link href={`/organizations/${r.organizationId}`} onClick={(e) => e.stopPropagation()} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{r.organizationName}</Link></Td>
+                      <Td>
+                        {r.organizationId ? (
+                          <Link href={`/organizations/${r.organizationId}`} onClick={(e) => e.stopPropagation()} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>
+                            {r.organizationName ?? "—"}
+                          </Link>
+                        ) : (
+                          <span style={{ color: "var(--muted-foreground)" }}>{r.organizationName ?? "Platform"}</span>
+                        )}
+                      </Td>
                       <Td muted>{r.actor}</Td>
                       <Td muted nowrap>{formatDateTime(r.createdAt)}</Td>
                     </Tr>
@@ -71,7 +89,7 @@ export default function AuditPage() {
                 ))}
               </TBody>
             </AdminTable>
-            <TableFooter showing={rows.length} total={rows.length} label="events" />
+            <TableFooter showing={rows.length} total={total} label="events" />
           </>
         )}
       </div>

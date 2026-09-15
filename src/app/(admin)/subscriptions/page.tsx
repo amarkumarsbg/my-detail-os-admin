@@ -5,7 +5,7 @@ import { CreditCard } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FilterBar } from "@/components/shared/filter-bar";
+import { FilterBar, FilterSelect } from "@/components/shared/filter-bar";
 import { AdminTable, THead, Th, TBody, Tr, Td, TableFooter, AdminTableSkeleton } from "@/components/shared/admin-table";
 import { SubscriptionStatusBadge, PaymentStatusBadge, PlanBadge } from "@/components/shared/status-badges";
 import { listOrganizations } from "@/api/organizations";
@@ -18,6 +18,9 @@ export default function SubscriptionsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPlan, setFilterPlan] = useState("all");
+
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
@@ -27,17 +30,42 @@ export default function SubscriptionsPage() {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return !q ? orgs : orgs.filter((o) => o.organization.name.toLowerCase().includes(q));
-  }, [orgs, search]);
+    let result = orgs;
+    if (filterStatus !== "all") result = result.filter(o => o.subscription.status === filterStatus);
+    if (filterPlan !== "all") result = result.filter(o => o.subscription.planCode === filterPlan);
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((o) => o.organization.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [orgs, search, filterStatus, filterPlan]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Topbar title="Subscriptions" description="All organization subscriptions" />
-      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search organizations…" onRefresh={() => load(true)} refreshing={refreshing} />
+      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search organizations…" onRefresh={() => load(true)} refreshing={refreshing}>
+        <FilterSelect value={filterStatus} onChange={setFilterStatus} options={[
+          { value: "all", label: "All Statuses" },
+          { value: "TRIAL", label: "Trial" },
+          { value: "ACTIVE", label: "Active" },
+          { value: "PAST_DUE", label: "Past Due" },
+          { value: "EXPIRED", label: "Expired" },
+          { value: "CANCELLED", label: "Cancelled" },
+        ]} />
+        <FilterSelect value={filterPlan} onChange={setFilterPlan} options={[
+          { value: "all", label: "All Plans" },
+          { value: "STARTER", label: "Starter" },
+          { value: "GROWTH", label: "Growth" },
+          { value: "BUSINESS", label: "Business" },
+          { value: "ENTERPRISE", label: "Enterprise" },
+          { value: "CUSTOM", label: "Custom" },
+        ]} />
+      </FilterBar>
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: "12px" }}><ErrorBanner message={error} onRetry={load} /></div>}
-        {loading ? <AdminTableSkeleton rows={8} cols={9} /> : filtered.length === 0 ? (
+        {loading ? <AdminTableSkeleton rows={8} cols={10} /> : filtered.length === 0 ? (
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px" }}><EmptyState icon={CreditCard} title="No subscriptions found" /></div>
         ) : (
           <>

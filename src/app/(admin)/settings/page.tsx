@@ -1,0 +1,285 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { Settings2, Shield, CreditCard, Activity, Building2, User, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Topbar } from "@/components/layout/topbar";
+import { ErrorBanner } from "@/components/shared/error-banner";
+import { RefreshingBar } from "@/components/shared/loading";
+import { getMe, type MeResponse } from "@/api/auth";
+import {
+  getPlatformSettings,
+  putPlatformSettings,
+  type PlatformSettingsValues,
+} from "@/api/platform";
+import { useAuthStore } from "@/store/auth-store";
+
+const NAV_ITEMS = [
+  { id: "session", name: "Session", icon: User },
+  { id: "defaults", name: "Billing Defaults", icon: CreditCard },
+  { id: "trial", name: "Trial Defaults", icon: Activity },
+  { id: "profile", name: "Platform Profile", icon: Building2 },
+  { id: "security", name: "Security", icon: Shield },
+  { id: "system", name: "System Info", icon: Settings2 },
+] as const;
+
+type SectionId = (typeof NAV_ITEMS)[number]["id"];
+
+function SectionCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+      <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>{title}</div>
+        {description && <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>{description}</div>}
+      </div>
+      <div style={{ padding: 18 }}>{children}</div>
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>{children}</div>;
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  height: 38,
+  padding: "0 12px",
+  border: "1px solid var(--border)",
+  borderRadius: 8,
+  background: "var(--card)",
+  color: "var(--foreground)",
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+export default function SettingsPage() {
+  const cachedUser = useAuthStore((s) => s.user);
+  const [active, setActive] = useState<SectionId>("defaults");
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [settings, setSettings] = useState<PlatformSettingsValues | null>(null);
+  const [meta, setMeta] = useState<{ updatedAt?: string; updatedBy?: string | null } | null>(null);
+  const [draft, setDraft] = useState<PlatformSettingsValues | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load(silent = false) {
+    if (!silent) setLoading(true); else setRefreshing(true);
+    setError(null);
+    try {
+      const [meRes, settingsRes] = await Promise.all([
+        getMe().catch(() => null),
+        getPlatformSettings(),
+      ]);
+      if (meRes) setMe(meRes);
+      setSettings(settingsRes.settings);
+      setDraft(settingsRes.settings);
+      setMeta(settingsRes.meta);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load settings");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleSave() {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      const res = await putPlatformSettings(draft);
+      setSettings(res.settings);
+      setDraft(res.settings);
+      setMeta(res.meta);
+      toast.success("Settings saved.");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const user = me?.user ?? cachedUser;
+  const dirty = draft && settings
+    ? JSON.stringify(draft) !== JSON.stringify(settings)
+    : false;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+      <RefreshingBar show={refreshing} />
+      <Topbar title="Platform Settings" description="Trial and billing defaults from PlatformSettings" />
+      <div style={{ flex: 1, overflowY: "auto", padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
+        {error && <div style={{ marginBottom: 12 }}><ErrorBanner message={error} onRetry={load} /></div>}
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(200px,240px)_1fr] grid-cols-1">
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 14, padding: 8, height: "fit-content" }}>
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = active === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActive(item.id)}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                    borderRadius: 10, border: "none", background: isActive ? "#eff6ff" : "transparent",
+                    color: isActive ? "#2563eb" : "var(--foreground)", fontSize: 13,
+                    fontWeight: isActive ? 600 : 500, cursor: "pointer", textAlign: "left", marginBottom: 2,
+                  }}
+                >
+                  <Icon style={{ width: 16, height: 16, flexShrink: 0 }} />
+                  {item.name}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {(active === "defaults" || active === "trial") && (
+              <SectionCard
+                title={active === "trial" ? "Trial Defaults" : "Billing Defaults"}
+                description="Stored in PlatformSettings (no secrets)."
+              >
+                {loading || !draft ? (
+                  <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Loading…</div>
+                ) : (
+                  <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
+                    {active === "trial" && (
+                      <div>
+                        <FieldLabel>Trial days default</FieldLabel>
+                        <input
+                          type="number"
+                          min={1}
+                          max={90}
+                          value={draft.trialDaysDefault}
+                          onChange={(e) => setDraft({ ...draft, trialDaysDefault: Number(e.target.value) })}
+                          style={inputStyle}
+                        />
+                      </div>
+                    )}
+                    {active === "defaults" && (
+                      <>
+                        <div>
+                          <FieldLabel>Default term (months)</FieldLabel>
+                          <select
+                            value={draft.defaultTermMonths}
+                            onChange={(e) => setDraft({ ...draft, defaultTermMonths: Number(e.target.value) as 12 | 24 | 36 | 60 })}
+                            style={inputStyle}
+                          >
+                            {[12, 24, 36, 60].map((m) => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <FieldLabel>Default GST %</FieldLabel>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.01}
+                            value={draft.defaultGstPercent}
+                            onChange={(e) => setDraft({ ...draft, defaultGstPercent: Number(e.target.value) })}
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <FieldLabel>Default contact us URL</FieldLabel>
+                          <input
+                            value={draft.defaultContactUsUrl ?? ""}
+                            onChange={(e) => setDraft({ ...draft, defaultContactUsUrl: e.target.value || null })}
+                            style={inputStyle}
+                            placeholder="https://…"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Default contact phone</FieldLabel>
+                          <input
+                            value={draft.defaultContactPhone ?? ""}
+                            onChange={(e) => setDraft({ ...draft, defaultContactPhone: e.target.value || null })}
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Default upgrade URL</FieldLabel>
+                          <input
+                            value={draft.defaultUpgradeUrl ?? ""}
+                            onChange={(e) => setDraft({ ...draft, defaultUpgradeUrl: e.target.value || null })}
+                            style={inputStyle}
+                            placeholder="https://…"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <div className="sm:col-span-2" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 4 }}>
+                      <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                        {meta?.updatedAt ? `Updated ${new Date(meta.updatedAt).toLocaleString()} by ${meta.updatedBy ?? "—"}` : ""}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!dirty || saving}
+                        onClick={handleSave}
+                        style={{
+                          height: 36, padding: "0 16px", borderRadius: 8, border: "none",
+                          background: !dirty || saving ? "#93c5fd" : "#2563eb", color: "#fff",
+                          fontSize: 13, fontWeight: 500, cursor: !dirty || saving ? "not-allowed" : "pointer",
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                        }}
+                      >
+                        {saving && <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />}
+                        {saving ? "Saving…" : "Save changes"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {active === "session" && (
+              <SectionCard title="Current Session" description="From GET /api/auth/me">
+                <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
+                  <div><FieldLabel>Name</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.name ?? "—"}</div></div>
+                  <div><FieldLabel>Email</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.email ?? "—"}</div></div>
+                  <div><FieldLabel>Role</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.role ?? "—"}</div></div>
+                  <div><FieldLabel>User ID</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)", fontFamily: "monospace", fontSize: 12 }}>{user?.id ?? "—"}</div></div>
+                </div>
+              </SectionCard>
+            )}
+
+            {active === "profile" && (
+              <SectionCard title="Platform Profile" description="Admin portal environment">
+                <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
+                  <div><FieldLabel>Platform Name</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>Prime Detailers SaaS Admin</div></div>
+                  <div><FieldLabel>API Base URL</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)", fontFamily: "monospace", fontSize: 12 }}>{apiUrl}</div></div>
+                </div>
+              </SectionCard>
+            )}
+
+            {active === "security" && (
+              <SectionCard title="Security">
+                <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
+                  <div><FieldLabel>Required role</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>PLATFORM_OWNER</div></div>
+                  <div><FieldLabel>Token storage</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>localStorage (admin_token)</div></div>
+                </div>
+              </SectionCard>
+            )}
+
+            {active === "system" && (
+              <SectionCard title="System Info">
+                <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
+                  Settings source: <code>GET/PUT /api/platform/settings</code><br />
+                  Plans overrides: <code>GET/PUT /api/platform/plans</code>
+                </div>
+              </SectionCard>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

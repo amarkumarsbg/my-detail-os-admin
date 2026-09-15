@@ -16,12 +16,14 @@ const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
 const BASE_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   borderRadius: "9999px",
-  padding: "3px 8px",
-  fontSize: "11.5px",
+  padding: "4px 12px",
+  fontSize: "12px",
   fontWeight: 600,
   lineHeight: 1.4,
   whiteSpace: "nowrap",
+  flexShrink: 0,
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {

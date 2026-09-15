@@ -104,8 +104,8 @@ export async function listPlatformPayments(params?: {
 
 export interface PlatformAuditRow {
   id: string;
-  organizationId: string;
-  organizationName: string;
+  organizationId: string | null;
+  organizationName: string | null;
   actor: string;
   action: string;
   before: unknown;
@@ -158,6 +158,189 @@ export async function createPlatformReferral(input: {
   notes?: string;
 }): Promise<PlatformReferralCode> {
   return apiClient.post("/api/platform/referrals", input);
+}
+
+export async function patchPlatformReferral(
+  id: string,
+  input: { discountAmount?: number; notes?: string | null; isActive?: boolean }
+): Promise<PlatformReferralCode> {
+  return apiClient.patch(`/api/platform/referrals/${id}`, input);
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export interface PlatformDashboard {
+  organizations: { total: number; active: number; inactive: number };
+  subscriptionStatusBreakdown: Record<string, number>;
+  revenueMtd: {
+    amount: number;
+    paidPaymentCount: number;
+    currency: string;
+    periodStart: string;
+  };
+  pendingPayments: number;
+  activeReferrals: number;
+}
+
+export async function getPlatformDashboard(): Promise<PlatformDashboard> {
+  return apiClient.get("/api/platform/dashboard");
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export interface PlatformUserRow {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  isActive: boolean;
+  branchId: string;
+  branchName: string;
+  organizationId: string;
+  organizationName: string;
+  lastLoginAt: string | null;
+}
+
+export async function listPlatformUsers(params?: {
+  orgId?: string;
+  role?: string;
+  isActive?: boolean;
+  search?: string;
+  includePlatformOwner?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<{ users: PlatformUserRow[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params?.orgId) q.set("orgId", params.orgId);
+  if (params?.role) q.set("role", params.role);
+  if (params?.isActive !== undefined) q.set("isActive", String(params.isActive));
+  if (params?.search) q.set("search", params.search);
+  if (params?.includePlatformOwner) q.set("includePlatformOwner", "true");
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.limit) q.set("limit", String(params.limit));
+  const qs = q.toString() ? `?${q}` : "";
+  return apiClient.get(`/api/platform/users${qs}`);
+}
+
+// ─── Branches ─────────────────────────────────────────────────────────────────
+
+export interface PlatformBranchRow {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  isActive: boolean;
+  code: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+  email: string | null;
+  managerName: string | null;
+  managerPhone: string | null;
+  organizationId: string;
+  organizationName: string;
+}
+
+export async function listPlatformBranches(params?: {
+  orgId?: string;
+  isActive?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ branches: PlatformBranchRow[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params?.orgId) q.set("orgId", params.orgId);
+  if (params?.isActive !== undefined) q.set("isActive", String(params.isActive));
+  if (params?.search) q.set("search", params.search);
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.limit) q.set("limit", String(params.limit));
+  const qs = q.toString() ? `?${q}` : "";
+  return apiClient.get(`/api/platform/branches${qs}`);
+}
+
+// ─── Plans ────────────────────────────────────────────────────────────────────
+
+export interface PlatformPlanTemplate {
+  planCode: string;
+  planName: string;
+  limits: {
+    maxBranches: number | null;
+    maxStaff?: number | null;
+    maxCustomers?: number | null;
+  };
+}
+
+export interface PlatformPlanOverride {
+  planName?: string;
+  limits?: {
+    maxBranches?: number | null;
+    maxStaff?: number | null;
+    maxCustomers?: number | null;
+  };
+}
+
+export async function getPlatformPlans(): Promise<{
+  plans: PlatformPlanTemplate[];
+  overrides: Partial<Record<string, PlatformPlanOverride>>;
+}> {
+  return apiClient.get("/api/platform/plans");
+}
+
+export async function putPlatformPlans(planOverrides: Partial<Record<string, PlatformPlanOverride>>): Promise<{
+  plans: PlatformPlanTemplate[];
+  overrides: Partial<Record<string, PlatformPlanOverride>>;
+}> {
+  return apiClient.put("/api/platform/plans", { planOverrides });
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export interface PlatformSettingsValues {
+  trialDaysDefault: number;
+  defaultTermMonths: number;
+  defaultGstPercent: number;
+  defaultContactUsUrl: string | null;
+  defaultContactPhone: string | null;
+  defaultUpgradeUrl: string | null;
+}
+
+export interface PlatformSettingsResponse {
+  settings: PlatformSettingsValues;
+  meta: {
+    updatedAt: string;
+    updatedBy: string | null;
+    envFallbacks?: {
+      defaultContactUsUrl: string | null;
+      defaultUpgradeUrl: string | null;
+      defaultContactPhone: string | null;
+    };
+  };
+}
+
+export async function getPlatformSettings(): Promise<PlatformSettingsResponse> {
+  return apiClient.get("/api/platform/settings");
+}
+
+export async function putPlatformSettings(
+  input: Partial<PlatformSettingsValues>
+): Promise<PlatformSettingsResponse> {
+  return apiClient.put("/api/platform/settings", input);
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+export interface PlatformMessagingStatus {
+  smsEnabled: boolean;
+  whatsappEnabled: boolean;
+  emailEnabled: boolean;
+  mailFromSet: boolean;
+  twilioFromSet: boolean;
+  twilioWhatsappFromSet: boolean;
+}
+
+export async function getPlatformMessaging(): Promise<PlatformMessagingStatus> {
+  return apiClient.get("/api/platform/messaging");
 }
 
 // ─── Suspend / Restore ────────────────────────────────────────────────────────

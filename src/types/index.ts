@@ -50,6 +50,8 @@ export interface SubscriptionInfo {
   limits: PlanLimits;
   maxBranchesOverride: number | null;
   effectiveMaxBranches: number | null;
+  maxUsersOverride?: number | null;
+  effectiveMaxUsers?: number | null;
   contactUsUrl: string | null;
   contactPhone: string | null;
   upgradeUrl: string | null;
@@ -78,6 +80,8 @@ export interface EntitlementPayload {
   };
   subscription: SubscriptionInfo;
   usage: UsageInfo;
+  canCreateBranch?: boolean;
+  canExportData?: boolean;
 }
 
 // ─── Platform Org List ───────────────────────────────────────────────────────
@@ -97,6 +101,15 @@ export interface OrgListItem extends EntitlementPayload {
 // ─── Platform Org Detail ─────────────────────────────────────────────────────
 
 export interface OrgDetail extends EntitlementPayload {
+  organization: {
+    id: string;
+    name: string;
+    slug: string | null;
+    isActive?: boolean;
+    activatedAt?: string | null;
+    ownerName?: string | null;
+    ownerEmail?: string | null;
+  };
   payments: SubscriptionPaymentRow[];
   bills: SubscriptionBillRow[];
 }
@@ -200,6 +213,7 @@ export interface PatchSubscriptionInput {
   status?: SubscriptionStatus;
   limits?: Partial<PlanLimits>;
   maxBranchesOverride?: number | null;
+  maxUsersOverride?: number | null;
   contactUsUrl?: string | null;
   contactPhone?: string | null;
   upgradeUrl?: string | null;

@@ -20,8 +20,10 @@ export default function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPlan, setFilterPlan] = useState("all");
   const [search, setSearch] = useState("");
   const [verifying, setVerifying] = useState<string | null>(null); // payment id being verified
+
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
@@ -31,14 +33,20 @@ export default function PaymentsPage() {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [filterStatus]);
+
   const pending = useMemo(() => rows.filter((r) => r.status === "PENDING" || r.status === "PROCESSING"), [rows]);
   const others = useMemo(() => rows.filter((r) => r.status !== "PENDING" && r.status !== "PROCESSING"), [rows]);
+
   const displayed = useMemo(() => {
-    const all = [...pending, ...others];
+    let all = [...pending, ...others];
+    if (filterPlan !== "all") {
+      all = all.filter(r => r.planName.toUpperCase() === filterPlan || r.planName.toLowerCase() === filterPlan.toLowerCase());
+    }
     if (!search) return all;
     const q = search.toLowerCase();
     return all.filter((r) => r.organizationName.toLowerCase().includes(q) || (r.txnReference ?? "").toLowerCase().includes(q));
-  }, [pending, others, search]);
+  }, [pending, others, search, filterPlan]);
+
   async function handleVerify(row: PlatformPaymentRow, outcome: "PAID" | "FAILED") {
     if (verifying) return; // prevent duplicate
     setVerifying(row.id);
@@ -46,6 +54,7 @@ export default function PaymentsPage() {
     catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setVerifying(null); }
   }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Topbar title="Payments" description={`${rows.length} payment records`} />
@@ -57,10 +66,18 @@ export default function PaymentsPage() {
           { value: "PAID", label: "Paid" },
           { value: "FAILED", label: "Failed" },
         ]} />
+        <FilterSelect value={filterPlan} onChange={setFilterPlan} options={[
+          { value: "all", label: "All Plans" },
+          { value: "STARTER", label: "Starter" },
+          { value: "GROWTH", label: "Growth" },
+          { value: "BUSINESS", label: "Business" },
+          { value: "ENTERPRISE", label: "Enterprise" },
+          { value: "CUSTOM", label: "Custom" },
+        ]} />
       </FilterBar>
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: "12px" }}><ErrorBanner message={error} onRetry={load} /></div>}
-        {loading ? <AdminTableSkeleton rows={8} cols={8} /> : displayed.length === 0 ? (
+        {loading ? <AdminTableSkeleton rows={8} cols={10} /> : displayed.length === 0 ? (
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px" }}><EmptyState icon={FileText} title="No payments found" /></div>
         ) : (
           <>

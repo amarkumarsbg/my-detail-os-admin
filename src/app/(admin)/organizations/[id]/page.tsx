@@ -31,6 +31,7 @@ import {
   verifyPayment,
   markPaid,
 } from "@/api/organizations";
+import { suspendOrg, restoreOrg } from "@/api/platform";
 import {
   formatCurrency,
   formatDate,
@@ -329,6 +330,7 @@ export default function OrgDetailPage() {
   const [markPaidTxn, setMarkPaidTxn] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
 
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -394,6 +396,37 @@ export default function OrgDetailPage() {
       await load(true);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Verification failed.");
+    }
+  }
+
+  async function handleSuspend() {
+    if (!org) return;
+    const reason = window.prompt("Suspension reason (required):", "Admin suspension");
+    if (!reason || !reason.trim()) return;
+    setLifecycleLoading(true);
+    try {
+      await suspendOrg(org.organization.id, reason.trim());
+      toast.success("Organization suspended.");
+      await load(true);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to suspend.");
+    } finally {
+      setLifecycleLoading(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!org) return;
+    if (!window.confirm("Restore this organization to ACTIVE?")) return;
+    setLifecycleLoading(true);
+    try {
+      await restoreOrg(org.organization.id, "Admin restore");
+      toast.success("Organization restored.");
+      await load(true);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to restore.");
+    } finally {
+      setLifecycleLoading(false);
     }
   }
 
@@ -557,27 +590,63 @@ export default function OrgDetailPage() {
             <OrgCard>
               <OrgCardHeader title="Quick Actions" subtitle="Perform administrative actions on this organization." />
               <OrgCardBody>
-                <button
-                  type="button"
-                  onClick={() => setMarkPaidOpen(true)}
-                  disabled={markPaidLoading}
-                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(99,120,150,0.12)", border: "1px solid var(--border)", borderRadius: 10, cursor: markPaidLoading ? "not-allowed" : "pointer", opacity: markPaidLoading ? 0.7 : 1, textAlign: "left", transition: "background 0.12s" }}
-                  onMouseEnter={(e) => { if (!markPaidLoading) e.currentTarget.style.background = "rgba(99,120,150,0.22)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(99,120,150,0.12)"; }}
-                >
-                  <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(59,130,246,0.15)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <CreditCard style={{ width: 16, height: 16, color: "#3b82f6" }} />
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
-                      {markPaidLoading ? "Processing…" : "Mark as Paid"}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setMarkPaidOpen(true)}
+                    disabled={markPaidLoading || lifecycleLoading}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(99,120,150,0.12)", border: "1px solid var(--border)", borderRadius: 10, cursor: markPaidLoading ? "not-allowed" : "pointer", opacity: markPaidLoading ? 0.7 : 1, textAlign: "left", transition: "background 0.12s" }}
+                    onMouseEnter={(e) => { if (!markPaidLoading) e.currentTarget.style.background = "rgba(99,120,150,0.22)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(99,120,150,0.12)"; }}
+                  >
+                    <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(59,130,246,0.15)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <CreditCard style={{ width: 16, height: 16, color: "#3b82f6" }} />
                     </span>
-                    <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
-                      Activate subscription and record payment
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                        {markPaidLoading ? "Processing…" : "Mark as Paid"}
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                        Activate subscription and record payment
+                      </span>
                     </span>
-                  </span>
-                  {markPaidLoading && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
-                </button>
+                    {markPaidLoading && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                  </button>
+
+                  {org.subscription.status === "CANCELLED" ? (
+                    <button
+                      type="button"
+                      onClick={handleRestore}
+                      disabled={lifecycleLoading}
+                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, cursor: lifecycleLoading ? "not-allowed" : "pointer", opacity: lifecycleLoading ? 0.7 : 1, textAlign: "left" }}
+                    >
+                      <span style={{ flexShrink: 0, width: 34, height: 34, background: "#dcfce7", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <CheckCircle2 style={{ width: 16, height: 16, color: "#16a34a" }} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>Restore Organization</span>
+                        <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Set subscription status back to ACTIVE</span>
+                      </span>
+                      {lifecycleLoading && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSuspend}
+                      disabled={lifecycleLoading}
+                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, cursor: lifecycleLoading ? "not-allowed" : "pointer", opacity: lifecycleLoading ? 0.7 : 1, textAlign: "left" }}
+                    >
+                      <span style={{ flexShrink: 0, width: 34, height: 34, background: "#fee2e2", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <AlertTriangle style={{ width: 16, height: 16, color: "#dc2626" }} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>Suspend Organization</span>
+                        <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Cancel subscription and restrict access</span>
+                      </span>
+                      {lifecycleLoading && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                    </button>
+                  )}
+                </div>
               </OrgCardBody>
             </OrgCard>
           </div>
@@ -600,12 +669,12 @@ export default function OrgDetailPage() {
                         <InlineTd muted>{formatDateTime(p.createdAt)}</InlineTd>
                         <InlineTd>
                           {(p.status === "PENDING" || p.status === "PROCESSING") && (
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <Button size="sm" variant="outline" onClick={() => handleVerifyPayment(p, "PAID")} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-7 px-2.5 text-xs">
-                                <CheckCircle2 className="h-3 w-3" /> Paid
+                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                              <Button size="sm" variant="outline" onClick={() => handleVerifyPayment(p, "PAID")} className="shrink-0 whitespace-nowrap text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8 min-w-[72px] px-3 text-xs gap-1.5">
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Paid
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => handleVerifyPayment(p, "FAILED")} className="text-red-600 border-red-200 hover:bg-red-50 h-7 px-2.5 text-xs">
-                                <XCircle className="h-3 w-3" /> Failed
+                              <Button size="sm" variant="outline" onClick={() => handleVerifyPayment(p, "FAILED")} className="shrink-0 whitespace-nowrap text-red-600 border-red-200 hover:bg-red-50 h-8 min-w-[72px] px-3 text-xs gap-1.5">
+                                <XCircle className="h-3.5 w-3.5 shrink-0" /> Failed
                               </Button>
                             </div>
                           )}
