@@ -27,7 +27,7 @@ export function RefreshingBar({ show }: { show: boolean }) {
       <div
         style={{
           height: "100%",
-          background: "linear-gradient(90deg, transparent 0%, #3b82f6 50%, transparent 100%)",
+          background: "linear-gradient(90deg, transparent 0%, #50B0A0 50%, transparent 100%)",
           backgroundSize: "200% 100%",
           animation: "admin-shimmer 1.4s ease-in-out infinite",
         }}
@@ -57,7 +57,7 @@ export function InlineLoader({ label = "Loading…" }: InlineLoaderProps) {
         fontSize: "13px",
       }}
     >
-      <Loader2 style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite", color: "#3b82f6" }} />
+      <Loader2 style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite", color: "#50B0A0" }} />
       <span>{label}</span>
     </div>
   );

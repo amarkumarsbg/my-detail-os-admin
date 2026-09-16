@@ -85,51 +85,65 @@ export function Sidebar() {
         overflow: "hidden",
       }}
     >
-      {/* Brand header */}
+      {/* Brand header — click → dashboard */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          gap: "8px",
           height: "56px",
-          padding: "0 10px",
+          padding: isCollapsed ? "0 10px" : "0 10px",
           borderBottom: "1px solid var(--border)",
           flexShrink: 0,
-          overflow: "hidden",
         }}
         className="md:h-16"
       >
-        <div
+        <Link
+          href="/dashboard"
+          onClick={handleNav}
+          title="Go to dashboard"
+          aria-label="Prime Detailers Admin — Dashboard"
           style={{
-            width: "36px",
-            height: "36px",
-            borderRadius: "10px",
-            background: "#3b82f6",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: "15px",
-            flexShrink: 0,
+            gap: isCollapsed ? 0 : "12px",
+            minWidth: 0,
+            flex: 1,
+            textDecoration: "none",
+            color: "inherit",
+            justifyContent: isCollapsed ? "center" : undefined,
           }}
         >
-          P
-        </div>
-        {!isCollapsed && (
-          <div style={{ minWidth: 0, overflow: "hidden", flex: 1 }}>
-            <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap" }}>
-              Prime Detailers
-            </p>
-            <p style={{ fontSize: "11px", color: "var(--muted-foreground)", margin: 0, opacity: 0.8 }}>SaaS Admin</p>
-          </div>
-        )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.svg"
+            alt=""
+            width={36}
+            height={36}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              flexShrink: 0,
+              display: "block",
+              objectFit: "contain",
+            }}
+          />
+          {!isCollapsed && (
+            <div style={{ minWidth: 0, overflow: "hidden", flex: 1 }}>
+              <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap" }}>
+                Prime Detailers
+              </p>
+              <p style={{ fontSize: "11px", color: "var(--muted-foreground)", margin: 0, opacity: 0.8 }}>Admin</p>
+            </div>
+          )}
+        </Link>
         {/* Close button — mobile only */}
         <button
           aria-label="Close navigation"
           onClick={closeMobile}
           className="flex md:hidden"
-          style={{ marginLeft: "auto", width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", flexShrink: 0 }}
+          style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", flexShrink: 0 }}
         >
           <X style={{ width: 16, height: 16 }} />
         </button>
@@ -169,7 +183,7 @@ export function Sidebar() {
                       fontWeight: 500,
                       textDecoration: "none",
                       transition: "background 0.15s, color 0.15s, transform 0.15s",
-                      background: active ? "#3b82f6" : "transparent",
+                      background: active ? "#50B0A0" : "transparent",
                       color: active ? "#ffffff" : "var(--sidebar-foreground)",
                       justifyContent: isCollapsed ? "center" : undefined,
                       transformOrigin: "left center",
@@ -214,7 +228,7 @@ export function Sidebar() {
       >
         {!isCollapsed && (
           <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", borderRadius: "10px" }}>
-            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, flexShrink: 0 }}>
+            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#50B0A0", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, flexShrink: 0 }}>
               {user?.name?.[0]?.toUpperCase() ?? "A"}
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>

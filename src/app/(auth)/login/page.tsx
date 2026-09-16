@@ -69,7 +69,7 @@ export default function LoginPage() {
               width: "44px",
               height: "44px",
               borderRadius: "12px",
-              background: "#2563eb",
+              background: "#50B0A0",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -157,7 +157,7 @@ export default function LoginPage() {
                 boxSizing: "border-box",
                 transition: "border-color 0.15s",
               }}
-              onFocus={(e) => (e.target.style.borderColor = "#2563eb")}
+              onFocus={(e) => (e.target.style.borderColor = "#50B0A0")}
               onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
             />
           </div>
@@ -200,7 +200,7 @@ export default function LoginPage() {
                   boxSizing: "border-box",
                   transition: "border-color 0.15s",
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "#2563eb")}
+                onFocus={(e) => (e.target.style.borderColor = "#50B0A0")}
                 onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
               />
               <button
@@ -241,7 +241,7 @@ export default function LoginPage() {
               gap: "8px",
               width: "100%",
               height: "48px",
-              background: loading || !email.trim() || !password ? "#93c5fd" : "#2563eb",
+              background: loading || !email.trim() || !password ? "#A8D9D0" : "#50B0A0",
               color: "#fff",
               border: "none",
               borderRadius: "8px",

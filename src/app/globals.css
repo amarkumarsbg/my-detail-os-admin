@@ -5,7 +5,7 @@
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
-  --primary: #2563eb;
+  --primary: #50B0A0;
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
@@ -13,24 +13,23 @@
   --muted-foreground: #64748b;
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
-  /* Sidebar — matches Workshop App light mode */
+  /* Sidebar */
   --sidebar: #ffffff;
   --sidebar-foreground: #475569;
-  --sidebar-accent: #dbeafe;
+  --sidebar-accent: #D5EFEA;
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #cbd5e1;
-  --sidebar-active: #3b82f6;
+  --sidebar-active: #50B0A0;
   --sidebar-active-foreground: #ffffff;
   --sidebar-section-heading: #0f172a;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #2563eb;
+  --ring: #50B0A0;
   --radius: 0.5rem;
   --sidebar-bg: #1e293b;
   --sidebar-fg: #94a3b8;
-  --sidebar-active: #2563eb;
   --sidebar-active-fg: #ffffff;
   --sidebar-hover: rgba(255,255,255,0.06);
   --page-bg: #f8fafc;
@@ -43,7 +42,7 @@
   --foreground: #f8fafc;
   --card: #1e293b;
   --card-foreground: #f8fafc;
-  --primary: #3b82f6;
+  --primary: #50B0A0;
   --primary-foreground: #ffffff;
   --secondary: #1e293b;
   --secondary-foreground: #f8fafc;
@@ -52,14 +51,15 @@
   --accent-foreground: #f1f5f9;
   --border: #334155;
   --input: #334155;
-  --ring: #3b82f6;
+  --ring: #50B0A0;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --page-bg: #0f172a;
   --topbar-bg: #1e293b;
   --topbar-border: #334155;
   --sidebar-foreground: #94a3b8;
-  --sidebar-accent: #1e3a5f;
+  --sidebar-accent: #1a3d38;
+  --sidebar-active: #50B0A0;
 }
 
 * {
@@ -109,5 +109,3 @@ body {
 .dark .text-slate-600 { color: var(--muted-foreground) !important; }
 .dark .text-slate-500 { color: var(--muted-foreground) !important; }
 .dark .text-slate-400 { color: var(--muted-foreground) !important; }
-
-

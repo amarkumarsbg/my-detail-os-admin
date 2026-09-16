@@ -67,7 +67,7 @@ export default function BillsPage() {
                 <TBody>
                   {filtered.map((b) => (
                     <Tr key={b.id}>
-                      <Td><Link href={`/organizations/${b.organizationId}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{b.organizationName}</Link></Td>
+                      <Td><Link href={`/organizations/${b.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{b.organizationName}</Link></Td>
                       <Td mono muted>{b.billNumber}</Td>
                       <Td muted>{b.planName}</Td>
                       <Td muted nowrap>{termLabel(b.termMonths)}</Td>
@@ -90,7 +90,7 @@ export default function BillsPage() {
                 <div key={b.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div>
-                      <Link href={`/organizations/${b.organizationId}`} style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>{b.organizationName}</Link>
+                      <Link href={`/organizations/${b.organizationId}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none" }}>{b.organizationName}</Link>
                       <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "monospace" }}>{b.billNumber}</div>
                     </div>
                     <PaymentStatusBadge status={b.paymentStatus} />

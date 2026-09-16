@@ -3,13 +3,13 @@ import * as React from "react";
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "muted";
 
 const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
-  default:     { background: "#2563eb", color: "#fff", border: "1px solid #1d4ed8" },
+  default:     { background: "#50B0A0", color: "#fff", border: "1px solid #3D8F82" },
   secondary:   { background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1" },
   destructive: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fca5a5" },
   outline:     { background: "transparent", color: "#334155", border: "1px solid #cbd5e1" },
   success:     { background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac" },
   warning:     { background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d" },
-  info:        { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #93c5fd" },
+  info:        { background: "#EFF8F6", color: "#3D8F82", border: "1px solid #A8D9D0" },
   muted:       { background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" },
 };
 

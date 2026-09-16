@@ -66,7 +66,7 @@ export default function DashboardPage() {
     const breakdown = dash?.subscriptionStatusBreakdown ?? {};
     const entries = [
       { key: "ACTIVE", label: "Active", color: "#16a34a" },
-      { key: "PAST_DUE", label: "Past Due", color: "#3b82f6" },
+      { key: "PAST_DUE", label: "Past Due", color: "#50B0A0" },
       { key: "EXPIRED", label: "Expired", color: "#dc2626" },
       { key: "CANCELLED", label: "Cancelled", color: "#94a3b8" },
     ];
@@ -84,12 +84,12 @@ export default function DashboardPage() {
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: "16px" }}><ErrorBanner message={error} onRetry={load} /></div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px", marginBottom: "20px" }}>
-          <StatCard label="Total Orgs" value={loading ? "—" : dash?.organizations.total ?? 0} icon={Building2} iconBg="#eff6ff" iconColor="#2563eb" loading={loading} />
+          <StatCard label="Total Orgs" value={loading ? "—" : dash?.organizations.total ?? 0} icon={Building2} iconBg="#EFF8F6" iconColor="#50B0A0" loading={loading} />
           <StatCard label="Active Orgs" value={loading ? "—" : dash?.organizations.active ?? 0} sub="isActive" icon={CheckCircle2} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
           <StatCard label="Expiring Soon" value={loading ? "—" : expiringSoon} sub="within 30 days" icon={AlertTriangle} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
           <StatCard label="Pending Payments" value={loading ? "—" : dash?.pendingPayments ?? 0} sub="awaiting" icon={CreditCard} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
           <StatCard label="Paid this month" value={loading ? "—" : formatCurrency(dash?.revenueMtd.amount ?? 0, dash?.revenueMtd.currency)} sub={`${dash?.revenueMtd.paidPaymentCount ?? 0} payments`} icon={CreditCard} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
-          <StatCard label="Active Referrals" value={loading ? "—" : dash?.activeReferrals ?? 0} icon={Tag} iconBg="#eff6ff" iconColor="#2563eb" loading={loading} />
+          <StatCard label="Active Referrals" value={loading ? "—" : dash?.activeReferrals ?? 0} icon={Tag} iconBg="#EFF8F6" iconColor="#50B0A0" loading={loading} />
         </div>
 
         <div style={{ marginBottom: "20px" }}>
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", marginBottom: "20px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px 10px", borderBottom: "1px solid var(--border)" }}>
             <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", margin: 0 }}>Recent Organizations</p>
-            <Link href="/organizations" style={{ fontSize: "12px", color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
+            <Link href="/organizations" style={{ fontSize: "12px", color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
           </div>
           {loading ? <AdminTableSkeleton rows={5} cols={6} /> : orgs.length === 0 ? (
             <EmptyState icon={Building2} title="No organizations yet" />
@@ -126,7 +126,7 @@ export default function DashboardPage() {
                   <TBody>
                     {orgs.slice(0, 8).map((org) => (
                       <Tr key={org.organization.id}>
-                        <Td><Link href={`/organizations/${org.organization.id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{org.organization.name}</Link></Td>
+                        <Td><Link href={`/organizations/${org.organization.id}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{org.organization.name}</Link></Td>
                         <Td><PlanBadge planCode={org.subscription.planCode} /></Td>
                         <Td><SubscriptionStatusBadge status={org.subscription.status} /></Td>
                         <Td muted nowrap><div>{formatDate(org.subscription.expiresAt)}</div><div style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{daysRemainingLabel(org.subscription.daysRemaining)}</div></Td>
@@ -140,7 +140,7 @@ export default function DashboardPage() {
               <div className="flex flex-col md:hidden divide-y" style={{ borderTop: "1px solid var(--border)" }}>
                 {orgs.slice(0, 8).map((org) => (
                   <div key={org.organization.id} style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-                    <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>{org.organization.name}</Link>
+                    <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none" }}>{org.organization.name}</Link>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       <PlanBadge planCode={org.subscription.planCode} />
                       <SubscriptionStatusBadge status={org.subscription.status} />
@@ -157,7 +157,7 @@ export default function DashboardPage() {
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px 10px", borderBottom: "1px solid var(--border)" }}>
               <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", margin: 0 }}>Recent Payments</p>
-              <Link href="/payments" style={{ fontSize: "12px", color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
+              <Link href="/payments" style={{ fontSize: "12px", color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
             </div>
             {loading ? <AdminTableSkeleton rows={3} cols={4} /> : payments.length === 0 ? (
               <EmptyState icon={CreditCard} title="No payments yet" />
@@ -168,7 +168,7 @@ export default function DashboardPage() {
                   <TBody>
                     {payments.map((p) => (
                       <Tr key={p.id}>
-                        <Td><Link href={`/organizations/${p.organizationId}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{p.organizationName}</Link></Td>
+                        <Td><Link href={`/organizations/${p.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{p.organizationName}</Link></Td>
                         <Td>{formatCurrency(p.amount, p.currency)}</Td>
                         <Td><PaymentStatusBadge status={p.status} /></Td>
                         <Td muted>{formatDate(p.createdAt)}</Td>
@@ -183,7 +183,7 @@ export default function DashboardPage() {
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px 10px", borderBottom: "1px solid var(--border)" }}>
               <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", margin: 0 }}>Recent Activity</p>
-              <Link href="/audit" style={{ fontSize: "12px", color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
+              <Link href="/audit" style={{ fontSize: "12px", color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
             </div>
             {loading ? <AdminTableSkeleton rows={3} cols={3} /> : logs.length === 0 ? (
               <EmptyState icon={AlertTriangle} title="No activity yet" />
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                         <Td mono>{log.action}</Td>
                         <Td>
                           {log.organizationId ? (
-                            <Link href={`/organizations/${log.organizationId}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{log.organizationName || "—"}</Link>
+                            <Link href={`/organizations/${log.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{log.organizationName || "—"}</Link>
                           ) : (
                             <span style={{ color: "var(--muted-foreground)" }}>{log.organizationName || "Platform"}</span>
                           )}

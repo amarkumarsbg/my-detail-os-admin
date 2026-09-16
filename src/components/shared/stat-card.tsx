@@ -31,7 +31,7 @@ function StatSkeleton() {
   );
 }
 
-export function StatCard({ label, value, sub, icon: Icon, iconColor = "#2563eb", iconBg = "#eff6ff", loading }: StatCardProps) {
+export function StatCard({ label, value, sub, icon: Icon, iconColor = "#50B0A0", iconBg = "#EFF8F6", loading }: StatCardProps) {
   if (loading) return <StatSkeleton />;
 
   const valueStr = String(value);

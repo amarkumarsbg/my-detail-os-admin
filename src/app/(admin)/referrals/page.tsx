@@ -77,7 +77,7 @@ export default function ReferralsPage() {
   }
 
   const newCodeBtn = (
-    <button onClick={() => setShowForm((v) => !v)} style={{ display: "flex", alignItems: "center", gap: "5px", height: "32px", padding: "0 12px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", fontSize: "12px", fontWeight: 500, cursor: "pointer" }}>
+    <button onClick={() => setShowForm((v) => !v)} style={{ display: "flex", alignItems: "center", gap: "5px", height: "32px", padding: "0 12px", borderRadius: "6px", border: "none", background: "#50B0A0", color: "#fff", fontSize: "12px", fontWeight: 500, cursor: "pointer" }}>
       <Plus style={{ width: "13px", height: "13px" }} /> New Code
     </button>
   );
@@ -105,7 +105,7 @@ export default function ReferralsPage() {
                 style={{ height: "36px", padding: "0 10px", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "13px", width: "100%", outline: "none" }} />
             </div>
             <div style={{ display: "flex", gap: "6px" }}>
-              <button type="submit" disabled={creating} style={{ display: "flex", alignItems: "center", gap: "5px", height: "36px", padding: "0 16px", borderRadius: "6px", border: "none", background: creating ? "#93c5fd" : "#2563eb", color: "#fff", fontSize: "13px", fontWeight: 500, cursor: "pointer" }}>
+              <button type="submit" disabled={creating} style={{ display: "flex", alignItems: "center", gap: "5px", height: "36px", padding: "0 16px", borderRadius: "6px", border: "none", background: creating ? "#A8D9D0" : "#50B0A0", color: "#fff", fontSize: "13px", fontWeight: 500, cursor: "pointer" }}>
                 {creating && <Loader2 style={{ width: "13px", height: "13px", animation: "spin 1s linear infinite" }} />}
                 {creating ? "Creating…" : "Create"}
               </button>

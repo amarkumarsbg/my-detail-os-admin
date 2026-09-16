@@ -125,8 +125,8 @@ export default function SettingsPage() {
                   onClick={() => setActive(item.id)}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                    borderRadius: 10, border: "none", background: isActive ? "#eff6ff" : "transparent",
-                    color: isActive ? "#2563eb" : "var(--foreground)", fontSize: 13,
+                    borderRadius: 10, border: "none", background: isActive ? "#EFF8F6" : "transparent",
+                    color: isActive ? "#50B0A0" : "var(--foreground)", fontSize: 13,
                     fontWeight: isActive ? 600 : 500, cursor: "pointer", textAlign: "left", marginBottom: 2,
                   }}
                 >
@@ -222,7 +222,7 @@ export default function SettingsPage() {
                         onClick={handleSave}
                         style={{
                           height: 36, padding: "0 16px", borderRadius: 8, border: "none",
-                          background: !dirty || saving ? "#93c5fd" : "#2563eb", color: "#fff",
+                          background: !dirty || saving ? "#A8D9D0" : "#50B0A0", color: "#fff",
                           fontSize: 13, fontWeight: 500, cursor: !dirty || saving ? "not-allowed" : "pointer",
                           display: "inline-flex", alignItems: "center", gap: 6,
                         }}

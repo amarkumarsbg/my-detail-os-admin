@@ -56,10 +56,10 @@ export default function AuditPage() {
                   <React.Fragment key={r.id}>
                     <Tr onClick={() => setExpanded((prev) => prev === r.id ? null : r.id)}>
                       <Td><span style={{ color: "var(--muted-foreground)", display: "flex" }}>{expanded === r.id ? <ChevronDown style={{ width: "14px", height: "14px" }} /> : <ChevronRight style={{ width: "14px", height: "14px" }} />}</span></Td>
-                      <Td><code style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: 600, color: "#1e40af", background: "#eff6ff", padding: "2px 6px", borderRadius: "4px" }}>{r.action}</code></Td>
+                      <Td><code style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: 600, color: "#2F7D70", background: "#EFF8F6", padding: "2px 6px", borderRadius: "4px" }}>{r.action}</code></Td>
                       <Td>
                         {r.organizationId ? (
-                          <Link href={`/organizations/${r.organizationId}`} onClick={(e) => e.stopPropagation()} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>
+                          <Link href={`/organizations/${r.organizationId}`} onClick={(e) => e.stopPropagation()} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>
                             {r.organizationName ?? "—"}
                           </Link>
                         ) : (

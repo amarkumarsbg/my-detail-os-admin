@@ -129,7 +129,7 @@ function UsageField({ label, used, limit }: { label: string; used: number; limit
       </div>
       {limit != null && (
         <div style={{ height: 3, borderRadius: 2, background: "var(--secondary)", overflow: "hidden" }}>
-          <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: isOver ? "#f59e0b" : "#3b82f6", transition: "width 0.3s ease" }} />
+          <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: isOver ? "#f59e0b" : "#50B0A0", transition: "width 0.3s ease" }} />
         </div>
       )}
     </div>
@@ -181,7 +181,7 @@ function SelectInput({ value, onChange, options, disabled }: {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          border: open ? "1px solid #3b82f6" : "1px solid #e2e8f0",
+          border: open ? "1px solid #50B0A0" : "1px solid #e2e8f0",
           borderRadius: 8,
           background: disabled ? "var(--secondary)" : "var(--card)",
           fontSize: 13,
@@ -242,8 +242,8 @@ function SelectInput({ value, onChange, options, disabled }: {
                   padding: "8px 10px",
                   borderRadius: 6,
                   border: "none",
-                  background: isActive ? "#eff6ff" : "transparent",
-                  color: isActive ? "#1d4ed8" : "var(--foreground)",
+                  background: isActive ? "#EFF8F6" : "transparent",
+                  color: isActive ? "#3D8F82" : "var(--foreground)",
                   fontSize: 13,
                   fontWeight: isActive ? 600 : 400,
                   cursor: "pointer",
@@ -255,7 +255,7 @@ function SelectInput({ value, onChange, options, disabled }: {
               >
                 {isActive && (
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
-                    <path d="M2 6l3 3 5-5" stroke="#1d4ed8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M2 6l3 3 5-5" stroke="#3D8F82" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
                 <span style={{ marginLeft: isActive ? 0 : 20 }}>{o.label}</span>
@@ -662,7 +662,7 @@ export default function OrgDetailPage() {
                     onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(99,120,150,0.12)"; }}
                   >
                     <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(59,130,246,0.15)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <CreditCard style={{ width: 16, height: 16, color: "#3b82f6" }} />
+                      <CreditCard style={{ width: 16, height: 16, color: "#50B0A0" }} />
                     </span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
@@ -911,7 +911,7 @@ export default function OrgDetailPage() {
                               </span>
                             </td>
                             <td style={{ padding: "10px 10px" }}>
-                              <code style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 600, color: "#1e40af", background: "#eff6ff", padding: "2px 6px", borderRadius: 4 }}>
+                              <code style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 600, color: "#2F7D70", background: "#EFF8F6", padding: "2px 6px", borderRadius: 4 }}>
                                 {r.action}
                               </code>
                             </td>

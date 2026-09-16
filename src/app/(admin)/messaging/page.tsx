@@ -37,7 +37,7 @@ export default function MessagingPage() {
           enabled: status.smsEnabled,
           detail: status.twilioFromSet ? "From number configured" : "From number missing",
           icon: Smartphone,
-          tone: { bg: "#eff6ff", color: "#2563eb" },
+          tone: { bg: "#EFF8F6", color: "#50B0A0" },
         },
         {
           name: "WhatsApp (Twilio)",

@@ -97,7 +97,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, borderLeft: "1px solid var(--border)" }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#50B0A0", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
             {user?.name?.[0]?.toUpperCase() ?? "A"}
           </div>
         </div>

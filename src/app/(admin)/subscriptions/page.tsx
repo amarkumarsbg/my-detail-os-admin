@@ -76,7 +76,7 @@ export default function SubscriptionsPage() {
                 <TBody>
                   {filtered.map((o) => { const s = o.subscription; return (
                     <Tr key={o.organization.id}>
-                      <Td><Link href={`/organizations/${o.organization.id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{o.organization.name}</Link></Td>
+                      <Td><Link href={`/organizations/${o.organization.id}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{o.organization.name}</Link></Td>
                       <Td><PlanBadge planCode={s.planCode} /></Td>
                       <Td muted nowrap>{termLabel(s.termMonths)}</Td>
                       <Td><SubscriptionStatusBadge status={s.status} /></Td>
@@ -86,7 +86,7 @@ export default function SubscriptionsPage() {
                       <Td><PaymentStatusBadge status={s.paymentStatus} /></Td>
                       <Td muted>{o.usage.branchesUsed}/{s.effectiveMaxBranches ?? "∞"}</Td>
                       <Td muted>{o.usage.usersUsed}/{s.limits.maxStaff ?? "∞"}</Td>
-                      <Td><Link href={`/organizations/${o.organization.id}`} style={{ fontSize: "12px", fontWeight: 500, color: "#2563eb", textDecoration: "none", padding: "4px 10px", border: "1px solid #bfdbfe", borderRadius: "5px", background: "#eff6ff" }}>Manage</Link></Td>
+                      <Td><Link href={`/organizations/${o.organization.id}`} style={{ fontSize: "12px", fontWeight: 500, color: "#50B0A0", textDecoration: "none", padding: "4px 10px", border: "1px solid #B8E0D8", borderRadius: "5px", background: "#EFF8F6" }}>Manage</Link></Td>
                     </Tr>
                   ); })}
                 </TBody>
@@ -99,8 +99,8 @@ export default function SubscriptionsPage() {
               {filtered.map((o) => { const s = o.subscription; return (
                 <div key={o.organization.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                    <Link href={`/organizations/${o.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>{o.organization.name}</Link>
-                    <Link href={`/organizations/${o.organization.id}`} style={{ fontSize: 12, fontWeight: 500, color: "#2563eb", textDecoration: "none", padding: "5px 12px", border: "1px solid #bfdbfe", borderRadius: 6, background: "#eff6ff", whiteSpace: "nowrap", flexShrink: 0 }}>Manage</Link>
+                    <Link href={`/organizations/${o.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none" }}>{o.organization.name}</Link>
+                    <Link href={`/organizations/${o.organization.id}`} style={{ fontSize: 12, fontWeight: 500, color: "#50B0A0", textDecoration: "none", padding: "5px 12px", border: "1px solid #B8E0D8", borderRadius: 6, background: "#EFF8F6", whiteSpace: "nowrap", flexShrink: 0 }}>Manage</Link>
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     <PlanBadge planCode={s.planCode} />

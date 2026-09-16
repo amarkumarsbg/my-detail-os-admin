@@ -67,7 +67,7 @@ export default function RenewalsPage() {
                 <TBody>
                   {filtered.map((r) => (
                     <Tr key={r.billId}>
-                      <Td><Link href={`/organizations/${r.organizationId}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{r.organizationName}</Link></Td>
+                      <Td><Link href={`/organizations/${r.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{r.organizationName}</Link></Td>
                       <Td mono muted>{r.billNumber}</Td>
                       <Td muted>{r.planName}</Td>
                       <Td muted nowrap>{termLabel(r.termMonths)}</Td>
@@ -88,7 +88,7 @@ export default function RenewalsPage() {
                 <div key={r.billId} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div>
-                      <Link href={`/organizations/${r.organizationId}`} style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>{r.organizationName}</Link>
+                      <Link href={`/organizations/${r.organizationId}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none" }}>{r.organizationName}</Link>
                       <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "monospace" }}>{r.billNumber}</div>
                     </div>
                     <PaymentStatusBadge status={r.paymentStatus as never} />

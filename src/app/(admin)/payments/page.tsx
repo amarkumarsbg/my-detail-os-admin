@@ -88,7 +88,7 @@ export default function PaymentsPage() {
                 <TBody>
                   {displayed.map((r) => (
                     <Tr key={r.id}>
-                      <Td><Link href={`/organizations/${r.organizationId}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{r.organizationName}</Link></Td>
+                      <Td><Link href={`/organizations/${r.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{r.organizationName}</Link></Td>
                       <Td muted>{r.planName}</Td>
                       <Td mono muted>{r.billNumber ?? "—"}</Td>
                       <Td style={{ fontWeight: 500 }}>{r.amount != null ? formatCurrency(r.amount, r.currency) : "—"}</Td>
@@ -118,7 +118,7 @@ export default function PaymentsPage() {
                 <div key={r.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div>
-                      <Link href={`/organizations/${r.organizationId}`} style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>{r.organizationName}</Link>
+                      <Link href={`/organizations/${r.organizationId}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none" }}>{r.organizationName}</Link>
                       <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{r.planName}{r.billNumber ? ` · ${r.billNumber}` : ""}</div>
                     </div>
                     <PaymentStatusBadge status={r.status} />

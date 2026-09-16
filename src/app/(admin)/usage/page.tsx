@@ -31,7 +31,7 @@ function statusForOrg(org: OrgListItem): { label: "Healthy" | "Warning" | "Criti
 function barColor(pct: number) {
   if (pct > 90) return "#ef4444";
   if (pct > 75) return "#eab308";
-  return "#2563eb";
+  return "#50B0A0";
 }
 
 export default function UsagePage() {
@@ -81,7 +81,7 @@ export default function UsagePage() {
   }, [orgs]);
 
   const cards = [
-    { label: "Organizations", value: stats.totalOrgs, sub: `${stats.activeOrgs} active`, icon: Database, color: "#3b82f6" },
+    { label: "Organizations", value: stats.totalOrgs, sub: `${stats.activeOrgs} active`, icon: Database, color: "#50B0A0" },
     { label: "Billable Users", value: stats.totalUsers, sub: "across all orgs", icon: Users, color: "#16a34a" },
     { label: "Branches", value: stats.totalBranches, sub: "across all orgs", icon: Building2, color: "#7c3aed" },
     { label: "Near Limit", value: stats.nearLimit, sub: "warning or critical", icon: BarChart3, color: "#ea580c" },
@@ -146,7 +146,7 @@ export default function UsagePage() {
                     return (
                       <Tr key={org.organization.id}>
                         <Td>
-                          <Link href={`/organizations/${org.organization.id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>
+                          <Link href={`/organizations/${org.organization.id}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>
                             {org.organization.name}
                           </Link>
                         </Td>

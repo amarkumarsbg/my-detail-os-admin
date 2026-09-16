@@ -85,7 +85,7 @@ export default function OrganizationsPage() {
                   {filtered.map((org) => (
                     <Tr key={org.organization.id}>
                       <Td>
-                        <Link href={`/organizations/${org.organization.id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500 }}>{org.organization.name}</Link>
+                        <Link href={`/organizations/${org.organization.id}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{org.organization.name}</Link>
                         <div style={{ fontSize: "11px", color: "var(--muted-foreground)", fontFamily: "monospace" }}>{org.organization.id}</div>
                       </Td>
                       <Td><PlanBadge planCode={org.subscription.planCode} /></Td>
@@ -94,7 +94,7 @@ export default function OrganizationsPage() {
                       <Td><PaymentStatusBadge status={org.subscription.paymentStatus} /></Td>
                       <Td muted>{org.usage.branchesUsed} / {org.subscription.effectiveMaxBranches ?? "∞"}</Td>
                       <Td muted>{org.usage.usersUsed} / {org.subscription.limits.maxStaff ?? "∞"}</Td>
-                      <Td><Link href={`/organizations/${org.organization.id}`} style={{ fontSize: "12px", fontWeight: 500, color: "#2563eb", textDecoration: "none", padding: "4px 10px", border: "1px solid #bfdbfe", borderRadius: "5px", background: "#eff6ff" }}>Manage</Link></Td>
+                      <Td><Link href={`/organizations/${org.organization.id}`} style={{ fontSize: "12px", fontWeight: 500, color: "#50B0A0", textDecoration: "none", padding: "4px 10px", border: "1px solid #B8E0D8", borderRadius: "5px", background: "#EFF8F6" }}>Manage</Link></Td>
                     </Tr>
                   ))}
                 </TBody>
@@ -109,10 +109,10 @@ export default function OrganizationsPage() {
                   {/* Header row */}
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                     <div style={{ minWidth: 0 }}>
-                      <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", textDecoration: "none", display: "block" }}>{org.organization.name}</Link>
+                      <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none", display: "block" }}>{org.organization.name}</Link>
                       <span style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "monospace" }}>{org.organization.id}</span>
                     </div>
-                    <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 12, fontWeight: 500, color: "#2563eb", textDecoration: "none", padding: "5px 12px", border: "1px solid #bfdbfe", borderRadius: 6, background: "#eff6ff", whiteSpace: "nowrap", flexShrink: 0 }}>Manage</Link>
+                    <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 12, fontWeight: 500, color: "#50B0A0", textDecoration: "none", padding: "5px 12px", border: "1px solid #B8E0D8", borderRadius: 6, background: "#EFF8F6", whiteSpace: "nowrap", flexShrink: 0 }}>Manage</Link>
                   </div>
 
                   {/* Badges row */}

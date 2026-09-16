@@ -289,7 +289,7 @@ export default function PlansPage() {
               disabled={saving || loading || !pricingDraft}
               style={{
                 height: 34, padding: "0 14px", borderRadius: 6, border: "none",
-                background: saving || loading ? "#93c5fd" : "#2563eb", color: "#fff",
+                background: saving || loading ? "#A8D9D0" : "#50B0A0", color: "#fff",
                 fontSize: 12, fontWeight: 500, cursor: saving || loading ? "not-allowed" : "pointer",
                 display: "inline-flex", alignItems: "center", gap: 6,
               }}
@@ -303,7 +303,7 @@ export default function PlansPage() {
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: 16 }}><ErrorBanner message={error} onRetry={load} /></div>}
 
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, marginBottom: 20, fontSize: 13, color: "#1d4ed8" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 14px", background: "#EFF8F6", border: "1px solid #B8E0D8", borderRadius: 8, marginBottom: 20, fontSize: 13, color: "#3D8F82" }}>
           <Info style={{ width: 14, height: 14, marginTop: 2, flexShrink: 0 }} />
           <span>
             Create custom plan codes, edit limits/pricing, or delete unused plans.
@@ -329,7 +329,7 @@ export default function PlansPage() {
               return (
                 <div key={p.planCode} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 10, opacity: d.publicVisible ? 1 : 0.65 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: 12, border: "1px solid #bfdbfe" }}>{p.planCode}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#50B0A0", background: "#EFF8F6", padding: "2px 8px", borderRadius: 12, border: "1px solid #B8E0D8" }}>{p.planCode}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <Badge variant={d.publicVisible ? "success" : "muted"}>{d.publicVisible ? "Public" : "Hidden"}</Badge>
                       <button
@@ -536,7 +536,7 @@ export default function PlansPage() {
                 onClick={handleCreate}
                 style={{
                   height: 34, padding: "0 14px", borderRadius: 6, border: "none",
-                  background: creating ? "#93c5fd" : "#2563eb", color: "#fff",
+                  background: creating ? "#A8D9D0" : "#50B0A0", color: "#fff",
                   fontSize: 12, fontWeight: 500, cursor: creating ? "wait" : "pointer",
                   display: "inline-flex", alignItems: "center", gap: 6,
                 }}

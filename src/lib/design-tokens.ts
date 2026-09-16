@@ -1,11 +1,14 @@
 /**
  * Shared design tokens for the SaaS Admin Portal.
- * Import these constants anywhere you need consistent values.
+ * Primary teal matches the admin favicon (#50B0A0).
  */
 
 export const COLORS = {
-  primary: "#2563eb",
-  primaryHover: "#1d4ed8",
+  primary: "#50B0A0",
+  primaryHover: "#3D8F82",
+  primaryMuted: "#A8D9D0",
+  primaryBg: "#EFF8F6",
+  primaryBorder: "#B8E0D8",
   surface: "#ffffff",
   bg: "#f8fafc",
   border: "#e2e8f0",
@@ -23,9 +26,9 @@ export const COLORS = {
   danger: "#dc2626",
   dangerBg: "#fef2f2",
   dangerBorder: "#fecaca",
-  info: "#2563eb",
-  infoBg: "#eff6ff",
-  infoBorder: "#bfdbfe",
+  info: "#50B0A0",
+  infoBg: "#EFF8F6",
+  infoBorder: "#B8E0D8",
 } as const;
 
 export const RADIUS = {

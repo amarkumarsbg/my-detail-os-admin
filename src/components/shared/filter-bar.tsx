@@ -66,7 +66,7 @@ export function FilterBar({
               outline: "none",
               boxSizing: "border-box",
             }}
-            onFocus={(e) => { e.target.style.borderColor = "#2563eb"; e.target.style.background = "var(--card)"; }}
+            onFocus={(e) => { e.target.style.borderColor = "#50B0A0"; e.target.style.background = "var(--card)"; }}
             onBlur={(e) => { e.target.style.borderColor = "var(--border)"; e.target.style.background = "var(--secondary)"; }}
           />
         </div>
@@ -142,7 +142,7 @@ export function FilterSelect({ value, onChange, options, label }: FilterSelectPr
             display: "flex",
             alignItems: "center",
             gap: 6,
-            border: open ? "1px solid #3b82f6" : "1px solid var(--border)",
+            border: open ? "1px solid #50B0A0" : "1px solid var(--border)",
             borderRadius: "6px",
             background: "var(--card)",
             fontSize: "12px",
@@ -191,7 +191,7 @@ export function FilterSelect({ value, onChange, options, label }: FilterSelectPr
                     borderRadius: "5px",
                     border: "none",
                     background: isActive ? "var(--accent)" : "transparent",
-                    color: isActive ? "#3b82f6" : "var(--foreground)",
+                    color: isActive ? "#50B0A0" : "var(--foreground)",
                     fontSize: "12px",
                     fontWeight: isActive ? 600 : 400,
                     cursor: "pointer",
@@ -204,7 +204,7 @@ export function FilterSelect({ value, onChange, options, label }: FilterSelectPr
                 >
                   {isActive && (
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}>
-                      <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#50B0A0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                   <span style={{ marginLeft: isActive ? 0 : 16 }}>{o.label}</span>
