@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Settings2, Shield, CreditCard, Activity, User, Loader2 } from "lucide-react";
+import { CreditCard, Activity, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
@@ -18,8 +18,6 @@ const NAV_ITEMS = [
   { id: "session", name: "Session", icon: User },
   { id: "defaults", name: "Billing Defaults", icon: CreditCard },
   { id: "trial", name: "Trial Defaults", icon: Activity },
-  { id: "security", name: "Security", icon: Shield },
-  { id: "system", name: "System Info", icon: Settings2 },
 ] as const;
 
 type SectionId = (typeof NAV_ITEMS)[number]["id"];
@@ -245,24 +243,6 @@ export default function SettingsPage() {
                   <div><FieldLabel>Email</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.email ?? "—"}</div></div>
                   <div><FieldLabel>Role</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.role ?? "—"}</div></div>
                   <div><FieldLabel>User ID</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)", fontFamily: "monospace", fontSize: 12 }}>{user?.id ?? "—"}</div></div>
-                </div>
-              </SectionCard>
-            )}
-
-            {active === "security" && (
-              <SectionCard title="Security">
-                <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
-                  <div><FieldLabel>Required role</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>PLATFORM_OWNER</div></div>
-                  <div><FieldLabel>Token storage</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>localStorage (admin_token)</div></div>
-                </div>
-              </SectionCard>
-            )}
-
-            {active === "system" && (
-              <SectionCard title="System Info">
-                <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
-                  Settings source: <code>GET/PUT /api/platform/settings</code><br />
-                  Plans overrides: <code>GET/PUT /api/platform/plans</code>
                 </div>
               </SectionCard>
             )}

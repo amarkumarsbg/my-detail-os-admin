@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -14,6 +14,9 @@ import {
   Users,
   Building2,
   MapPin,
+  ClipboardList,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -34,7 +37,17 @@ import {
   verifyPayment,
   markPaid,
 } from "@/api/organizations";
-import { getPlatformPlans, listPlatformUsers, listPlatformBranches, suspendOrg, restoreOrg, type PlatformUserRow, type PlatformBranchRow } from "@/api/platform";
+import {
+  getPlatformPlans,
+  listPlatformUsers,
+  listPlatformBranches,
+  listPlatformAudit,
+  suspendOrg,
+  restoreOrg,
+  type PlatformUserRow,
+  type PlatformBranchRow,
+  type PlatformAuditRow,
+} from "@/api/platform";
 import {
   formatCurrency,
   formatDate,
@@ -337,7 +350,9 @@ export default function OrgDetailPage() {
 
   const [orgUsers, setOrgUsers] = useState<PlatformUserRow[]>([]);
   const [orgBranches, setOrgBranches] = useState<PlatformBranchRow[]>([]);
+  const [orgLogs, setOrgLogs] = useState<PlatformAuditRow[]>([]);
   const [orgDirectoryLoading, setOrgDirectoryLoading] = useState(false);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [markPaidAmount, setMarkPaidAmount] = useState("");
@@ -356,15 +371,18 @@ export default function OrgDetailPage() {
       setPatchPlan(data.subscription.planCode);
       setOrgDirectoryLoading(true);
       try {
-        const [usersRes, branchesRes] = await Promise.all([
+        const [usersRes, branchesRes, auditRes] = await Promise.all([
           listPlatformUsers({ orgId: id, limit: 100 }),
           listPlatformBranches({ orgId: id, limit: 100 }),
+          listPlatformAudit({ orgId: id, limit: 100 }),
         ]);
         setOrgUsers(usersRes.users);
         setOrgBranches(branchesRes.branches);
+        setOrgLogs(auditRes.logs);
       } catch {
         setOrgUsers([]);
         setOrgBranches([]);
+        setOrgLogs([]);
       } finally {
         setOrgDirectoryLoading(false);
       }
@@ -840,6 +858,90 @@ export default function OrgDetailPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </OrgCardBody>
+          </OrgCard>
+
+          {/* Row 6 – Audit logs (org-scoped) */}
+          <OrgCard>
+            <OrgCardHeader
+              title="Audit Logs"
+              subtitle={
+                orgDirectoryLoading
+                  ? "Loading…"
+                  : `${orgLogs.length} event${orgLogs.length !== 1 ? "s" : ""} for this organization`
+              }
+            />
+            <OrgCardBody>
+              {orgDirectoryLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[0, 1, 2].map((i) => <Skel key={i} h={36} />)}
+                </div>
+              ) : orgLogs.length === 0 ? (
+                <EmptyState icon={ClipboardList} message="No audit events for this organization." />
+              ) : (
+                <div style={{ overflowX: "auto", margin: "0 -4px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                        <th style={{ width: 28, padding: "8px 6px", textAlign: "left" }} />
+                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Event</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Actor</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orgLogs.map((r, idx) => (
+                        <React.Fragment key={r.id}>
+                          <tr
+                            onClick={() => setExpandedLogId((prev) => (prev === r.id ? null : r.id))}
+                            style={{
+                              borderTop: idx === 0 ? "none" : "1px solid #f1f5f9",
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248,250,252,0.9)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
+                          >
+                            <td style={{ padding: "10px 6px", verticalAlign: "middle" }}>
+                              <span style={{ color: "var(--muted-foreground)", display: "flex" }}>
+                                {expandedLogId === r.id
+                                  ? <ChevronDown style={{ width: 14, height: 14 }} />
+                                  : <ChevronRight style={{ width: 14, height: 14 }} />}
+                              </span>
+                            </td>
+                            <td style={{ padding: "10px 10px" }}>
+                              <code style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 600, color: "#1e40af", background: "#eff6ff", padding: "2px 6px", borderRadius: 4 }}>
+                                {r.action}
+                              </code>
+                            </td>
+                            <td style={{ padding: "10px 10px", color: "var(--muted-foreground)" }}>{r.actor}</td>
+                            <td style={{ padding: "10px 10px", color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{formatDateTime(r.createdAt)}</td>
+                          </tr>
+                          {expandedLogId === r.id && (
+                            <tr style={{ background: "var(--page-bg)" }}>
+                              <td colSpan={4} style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+                                  <div>
+                                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", margin: "0 0 4px", textTransform: "uppercase" }}>Before</p>
+                                    <pre style={{ margin: 0, padding: "8px 10px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, overflow: "auto", maxHeight: 140, color: "var(--foreground)" }}>
+                                      {r.before != null ? JSON.stringify(r.before, null, 2) : "—"}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", margin: "0 0 4px", textTransform: "uppercase" }}>After</p>
+                                    <pre style={{ margin: 0, padding: "8px 10px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, overflow: "auto", maxHeight: 140, color: "var(--foreground)" }}>
+                                      {r.after != null ? JSON.stringify(r.after, null, 2) : "—"}
+                                    </pre>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </OrgCardBody>
