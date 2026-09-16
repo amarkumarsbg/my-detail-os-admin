@@ -11,6 +11,9 @@ import {
   AlertTriangle,
   CreditCard,
   FileText,
+  Users,
+  Building2,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -31,7 +34,7 @@ import {
   verifyPayment,
   markPaid,
 } from "@/api/organizations";
-import { getPlatformPlans, suspendOrg, restoreOrg } from "@/api/platform";
+import { getPlatformPlans, listPlatformUsers, listPlatformBranches, suspendOrg, restoreOrg, type PlatformUserRow, type PlatformBranchRow } from "@/api/platform";
 import {
   formatCurrency,
   formatDate,
@@ -332,6 +335,10 @@ export default function OrgDetailPage() {
   ]);
   const [patchNotes, setPatchNotes] = useState("");
 
+  const [orgUsers, setOrgUsers] = useState<PlatformUserRow[]>([]);
+  const [orgBranches, setOrgBranches] = useState<PlatformBranchRow[]>([]);
+  const [orgDirectoryLoading, setOrgDirectoryLoading] = useState(false);
+
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [markPaidAmount, setMarkPaidAmount] = useState("");
   const [markPaidTxn, setMarkPaidTxn] = useState("");
@@ -347,6 +354,20 @@ export default function OrgDetailPage() {
       setOrg(data);
       setPatchStatus(data.subscription.status);
       setPatchPlan(data.subscription.planCode);
+      setOrgDirectoryLoading(true);
+      try {
+        const [usersRes, branchesRes] = await Promise.all([
+          listPlatformUsers({ orgId: id, limit: 100 }),
+          listPlatformBranches({ orgId: id, limit: 100 }),
+        ]);
+        setOrgUsers(usersRes.users);
+        setOrgBranches(branchesRes.branches);
+      } catch {
+        setOrgUsers([]);
+        setOrgBranches([]);
+      } finally {
+        setOrgDirectoryLoading(false);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load organization");
     } finally {
@@ -733,6 +754,96 @@ export default function OrgDetailPage() {
               </OrgCardBody>
             </OrgCard>
           </div>
+
+          {/* Row 4 – Users (org-scoped) */}
+          <OrgCard>
+            <OrgCardHeader
+              title="Users"
+              subtitle={orgDirectoryLoading ? "Loading…" : `${orgUsers.length} user${orgUsers.length !== 1 ? "s" : ""} in this organization`}
+            />
+            <OrgCardBody>
+              {orgDirectoryLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[0, 1, 2].map((i) => <Skel key={i} h={40} />)}
+                </div>
+              ) : orgUsers.length === 0 ? (
+                <EmptyState icon={Users} message="No users in this organization." />
+              ) : (
+                <InlineTable heads={[{ label: "Name" }, { label: "Branch" }, { label: "Role" }, { label: "Status" }, { label: "Last login" }]}>
+                  {orgUsers.map((u, idx) => (
+                    <InlineRow key={u.id} idx={idx}>
+                      <InlineTd>
+                        <div style={{ fontWeight: 600 }}>{u.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{u.email}</div>
+                      </InlineTd>
+                      <InlineTd muted>{u.branchName ?? "—"}</InlineTd>
+                      <InlineTd muted>{u.role}</InlineTd>
+                      <InlineTd>
+                        <Badge variant={u.isActive ? "success" : "muted"}>{u.isActive ? "Active" : "Inactive"}</Badge>
+                      </InlineTd>
+                      <InlineTd muted>{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</InlineTd>
+                    </InlineRow>
+                  ))}
+                </InlineTable>
+              )}
+            </OrgCardBody>
+          </OrgCard>
+
+          {/* Row 5 – Branches (org-scoped) */}
+          <OrgCard>
+            <OrgCardHeader
+              title="Branches"
+              subtitle={orgDirectoryLoading ? "Loading…" : `${orgBranches.length} branch${orgBranches.length !== 1 ? "es" : ""} in this organization`}
+            />
+            <OrgCardBody>
+              {orgDirectoryLoading ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+                  {[0, 1].map((i) => <Skel key={i} h={110} />)}
+                </div>
+              ) : orgBranches.length === 0 ? (
+                <EmptyState icon={Building2} message="No branches in this organization." />
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+                  {orgBranches.map((b) => {
+                    const location = [b.city, b.state].filter(Boolean).join(", ") || b.address || "—";
+                    return (
+                      <div
+                        key={b.id}
+                        style={{
+                          border: "1px solid var(--border)",
+                          borderRadius: 10,
+                          padding: "14px 16px",
+                          background: "rgba(248,250,252,0.6)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600 }}>{b.name}</div>
+                            {b.code && (
+                              <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "monospace", marginTop: 2 }}>{b.code}</div>
+                            )}
+                          </div>
+                          <Badge variant={b.isActive ? "success" : "muted"}>{b.isActive ? "Active" : "Inactive"}</Badge>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted-foreground)" }}>
+                          <MapPin style={{ width: 13, height: 13, flexShrink: 0 }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location}</span>
+                        </div>
+                        {(b.managerName || b.managerPhone) && (
+                          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                            Manager: {[b.managerName, b.managerPhone].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </OrgCardBody>
+          </OrgCard>
 
         </div>
       </div>

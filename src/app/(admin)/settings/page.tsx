@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Settings2, Shield, CreditCard, Activity, Building2, User, Loader2 } from "lucide-react";
+import { Settings2, Shield, CreditCard, Activity, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
@@ -18,7 +18,6 @@ const NAV_ITEMS = [
   { id: "session", name: "Session", icon: User },
   { id: "defaults", name: "Billing Defaults", icon: CreditCard },
   { id: "trial", name: "Trial Defaults", icon: Activity },
-  { id: "profile", name: "Platform Profile", icon: Building2 },
   { id: "security", name: "Security", icon: Shield },
   { id: "system", name: "System Info", icon: Settings2 },
 ] as const;
@@ -104,7 +103,6 @@ export default function SettingsPage() {
     }
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   const user = me?.user ?? cachedUser;
   const dirty = draft && settings
     ? JSON.stringify(draft) !== JSON.stringify(settings)
@@ -247,15 +245,6 @@ export default function SettingsPage() {
                   <div><FieldLabel>Email</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.email ?? "—"}</div></div>
                   <div><FieldLabel>Role</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>{user?.role ?? "—"}</div></div>
                   <div><FieldLabel>User ID</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)", fontFamily: "monospace", fontSize: 12 }}>{user?.id ?? "—"}</div></div>
-                </div>
-              </SectionCard>
-            )}
-
-            {active === "profile" && (
-              <SectionCard title="Platform Profile" description="Admin portal environment">
-                <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
-                  <div><FieldLabel>Platform Name</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)" }}>Prime Detailers SaaS Admin</div></div>
-                  <div><FieldLabel>API Base URL</FieldLabel><div style={{ ...inputStyle, display: "flex", alignItems: "center", background: "var(--secondary)", fontFamily: "monospace", fontSize: 12 }}>{apiUrl}</div></div>
                 </div>
               </SectionCard>
             )}
