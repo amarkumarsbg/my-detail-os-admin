@@ -105,19 +105,40 @@ export function FilterBar({
   );
 }
 
-// ─── Custom dropdown for use inside FilterBar ────────────────────────────────
+// ─── Custom dropdown for use inside FilterBar (and forms) ────────────────────
 
 interface FilterSelectProps {
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   label?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  /** Stretch trigger to fill parent width (forms). */
+  fullWidth?: boolean;
+  minWidth?: number | string;
+  /** Max height of the options panel before scrolling. */
+  maxMenuHeight?: number;
+  "aria-label"?: string;
 }
 
-export function FilterSelect({ value, onChange, options, label }: FilterSelectProps) {
+export function FilterSelect({
+  value,
+  onChange,
+  options,
+  label,
+  placeholder = "Select…",
+  disabled,
+  fullWidth,
+  minWidth,
+  maxMenuHeight = 280,
+  "aria-label": ariaLabel,
+}: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value);
+  const display = selected?.label || (value ? value : placeholder);
+  const isPlaceholder = !value;
 
   useEffect(() => {
     if (!open) return;
@@ -129,45 +150,54 @@ export function FilterSelect({ value, onChange, options, label }: FilterSelectPr
   }, [open]);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-      {label && <span style={{ fontSize: "12px", color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{label}</span>}
-      <div ref={ref} style={{ position: "relative" }}>
-        {/* Trigger */}
+    <div style={{ display: "flex", alignItems: fullWidth ? "stretch" : "center", gap: "5px", width: fullWidth ? "100%" : undefined, flexDirection: fullWidth && label ? "column" : "row" }}>
+      {label && !fullWidth && <span style={{ fontSize: "12px", color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{label}</span>}
+      {label && fullWidth && <span style={{ fontSize: "12px", color: "var(--muted-foreground)", alignSelf: "flex-start" }}>{label}</span>}
+      <div ref={ref} style={{ position: "relative", width: fullWidth ? "100%" : undefined, minWidth }}>
         <button
           type="button"
-          onClick={() => setOpen((p) => !p)}
+          aria-label={ariaLabel || label}
+          aria-expanded={open}
+          disabled={disabled}
+          onClick={() => !disabled && setOpen((p) => !p)}
           style={{
-            height: "34px",
+            width: fullWidth ? "100%" : undefined,
+            height: fullWidth ? "36px" : "34px",
             padding: "0 10px 0 12px",
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: 6,
             border: open ? "1px solid #50B0A0" : "1px solid var(--border)",
-            borderRadius: "6px",
-            background: "var(--card)",
-            fontSize: "12px",
+            borderRadius: fullWidth ? "8px" : "6px",
+            background: disabled ? "var(--secondary)" : "var(--card)",
+            fontSize: fullWidth ? "13px" : "12px",
             fontWeight: 500,
-            color: "var(--foreground)",
-            cursor: "pointer",
+            color: isPlaceholder ? "var(--muted-foreground)" : "var(--foreground)",
+            cursor: disabled ? "not-allowed" : "pointer",
+            opacity: disabled ? 0.6 : 1,
             outline: "none",
             whiteSpace: "nowrap",
-            boxShadow: open ? "0 0 0 3px rgba(59,130,246,0.12)" : "none",
+            boxShadow: open ? "0 0 0 3px rgba(80,176,160,0.18)" : "none",
             transition: "border-color 0.15s, box-shadow 0.15s",
+            boxSizing: "border-box",
           }}
         >
-          <span>{selected?.label ?? value}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{display}</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, color: "var(--muted-foreground)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
             <path d="M2.5 4.5l3.5 3.5 3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
 
-        {/* Dropdown */}
         {open && (
           <div style={{
             position: "absolute",
             top: "calc(100% + 4px)",
             left: 0,
-            minWidth: "100%",
+            right: fullWidth ? 0 : undefined,
+            minWidth: fullWidth ? undefined : "100%",
+            maxHeight: maxMenuHeight,
+            overflowY: "auto",
             background: "var(--card)",
             border: "1px solid var(--border)",
             borderRadius: "8px",
@@ -175,7 +205,9 @@ export function FilterSelect({ value, onChange, options, label }: FilterSelectPr
             zIndex: 200,
             padding: "4px",
           }}>
-            {options.map((o) => {
+            {options.length === 0 ? (
+              <div style={{ padding: "8px 10px", fontSize: 12, color: "var(--muted-foreground)" }}>No options</div>
+            ) : options.map((o) => {
               const isActive = o.value === value;
               return (
                 <button
@@ -192,7 +224,7 @@ export function FilterSelect({ value, onChange, options, label }: FilterSelectPr
                     border: "none",
                     background: isActive ? "var(--accent)" : "transparent",
                     color: isActive ? "#50B0A0" : "var(--foreground)",
-                    fontSize: "12px",
+                    fontSize: fullWidth ? "13px" : "12px",
                     fontWeight: isActive ? 600 : 400,
                     cursor: "pointer",
                     textAlign: "left",

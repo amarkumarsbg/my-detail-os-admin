@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { RefreshingBar } from "@/components/shared/loading";
+import { FilterSelect } from "@/components/shared/filter-bar";
 import { getMe, type MeResponse } from "@/api/auth";
 import {
   getPlatformSettings,
@@ -164,13 +165,19 @@ export default function SettingsPage() {
                       <>
                         <div>
                           <FieldLabel>Default term (months)</FieldLabel>
-                          <select
-                            value={draft.defaultTermMonths}
-                            onChange={(e) => setDraft({ ...draft, defaultTermMonths: Number(e.target.value) as 12 | 24 | 36 | 60 })}
-                            style={inputStyle}
-                          >
-                            {[12, 24, 36, 60].map((m) => <option key={m} value={m}>{m}</option>)}
-                          </select>
+                          <FilterSelect
+                            value={String(draft.defaultTermMonths)}
+                            onChange={(v) => setDraft({ ...draft, defaultTermMonths: Number(v) })}
+                            fullWidth
+                            options={[
+                              { value: "1", label: "Monthly (1 month)" },
+                              { value: "3", label: "Quarterly (3 months)" },
+                              { value: "12", label: "Yearly (12 months)" },
+                              { value: "24", label: "24 months" },
+                              { value: "36", label: "36 months" },
+                              { value: "60", label: "60 months" },
+                            ]}
+                          />
                         </div>
                         <div>
                           <FieldLabel>Default GST %</FieldLabel>

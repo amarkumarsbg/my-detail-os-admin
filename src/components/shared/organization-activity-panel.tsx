@@ -188,17 +188,18 @@ export function OrganizationActivityPanel({
         }}
       >
         {!fixedOrgId && (
-          <select
+          <FilterSelect
             value={selectedOrgId}
-            onChange={(e) => setSelectedOrgId(e.target.value)}
-            style={{ ...inputStyle, minWidth: 200, maxWidth: 280 }}
+            onChange={setSelectedOrgId}
+            placeholder="Select organization…"
             aria-label="Organization"
-          >
-            <option value="">Select organization…</option>
-            {organizationOptions.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
+            minWidth={200}
+            maxMenuHeight={320}
+            options={[
+              { value: "", label: "Select organization…" },
+              ...organizationOptions.map((o) => ({ value: o.id, label: o.name })),
+            ]}
+          />
         )}
         <input
           type="search"

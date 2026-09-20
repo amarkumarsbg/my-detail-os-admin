@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { RefreshingBar } from "@/components/shared/loading";
+import { FilterSelect } from "@/components/shared/filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -144,127 +145,6 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
         {label}
       </label>
       {children}
-    </div>
-  );
-}
-
-function SelectInput({ value, onChange, options, disabled }: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const selected = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    if (!open) return;
-    function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      {/* Trigger */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => !disabled && setOpen((p) => !p)}
-        style={{
-          width: "100%",
-          height: 36,
-          padding: "0 10px 0 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          border: open ? "1px solid #50B0A0" : "1px solid #e2e8f0",
-          borderRadius: 8,
-          background: disabled ? "var(--secondary)" : "var(--card)",
-          fontSize: 13,
-          color: "var(--foreground)",
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.6 : 1,
-          outline: "none",
-          boxShadow: open ? "0 0 0 3px rgba(59,130,246,0.12)" : "none",
-          transition: "border-color 0.15s, box-shadow 0.15s",
-        }}
-      >
-        <span style={{ fontWeight: 500 }}>{selected?.label ?? value}</span>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          style={{
-            flexShrink: 0,
-            color: "var(--muted-foreground)",
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform 0.15s",
-          }}
-        >
-          <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {/* Dropdown panel */}
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            right: 0,
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)",
-            zIndex: 100,
-            padding: "4px",
-            overflow: "hidden",
-          }}
-        >
-          {options.map((o) => {
-            const isActive = o.value === value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => { onChange(o.value); setOpen(false); }}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 10px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: isActive ? "#EFF8F6" : "transparent",
-                  color: isActive ? "#3D8F82" : "var(--foreground)",
-                  fontSize: 13,
-                  fontWeight: isActive ? 600 : 400,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "background 0.1s",
-                }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(99,120,150,0.18)"; }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
-              >
-                {isActive && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
-                    <path d="M2 6l3 3 5-5" stroke="#3D8F82" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-                <span style={{ marginLeft: isActive ? 0 : 20 }}>{o.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -619,10 +499,11 @@ export default function OrgDetailPage() {
               <OrgCardHeader title="Manage Subscription" subtitle="Update the organization's subscription." />
               <OrgCardBody style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <FormField label="Plan">
-                  <SelectInput
+                  <FilterSelect
                     value={patchPlan}
                     onChange={(v) => setPatchPlan(v as PlanCode)}
                     disabled={patching}
+                    fullWidth
                     options={
                       planOptions.some((o) => o.value === patchPlan)
                         ? planOptions
@@ -631,10 +512,11 @@ export default function OrgDetailPage() {
                   />
                 </FormField>
                 <FormField label="Status">
-                  <SelectInput
+                  <FilterSelect
                     value={patchStatus}
                     onChange={setPatchStatus}
                     disabled={patching}
+                    fullWidth
                     options={["ACTIVE","PAST_DUE","EXPIRED","CANCELLED"].map((s) => ({ value: s, label: s }))}
                   />
                 </FormField>
