@@ -17,14 +17,28 @@ import {
   type PlatformPlanTemplate,
   type PlatformPlanOverride,
   type PlatformPlansPricing,
+  type PlanTermMonths,
 } from "@/api/platform";
 import { formatCurrency } from "@/lib/utils";
 
+const ALL_TERMS: PlanTermMonths[] = [1, 3, 12, 24, 36, 60];
+
 const TERM_LABELS: Record<string, string> = {
-  "12": "1 Year (12 months)",
-  "24": "2 Years (24 months)",
-  "36": "3 Years (36 months)",
-  "60": "5 Years (60 months)",
+  "1": "Monthly (1 month)",
+  "3": "Quarterly (3 months)",
+  "12": "Yearly (12 months)",
+  "24": "24 months",
+  "36": "36 months",
+  "60": "60 months",
+};
+
+const TERM_SHORT: Record<PlanTermMonths, string> = {
+  1: "Monthly",
+  3: "Quarterly",
+  12: "Yearly",
+  24: "24 mo",
+  36: "36 mo",
+  60: "60 mo",
 };
 
 const inputStyle: React.CSSProperties = {
@@ -59,18 +73,33 @@ function normalizeCodePreview(raw: string): string {
   return raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
 }
 
+function normalizeAllowedTerms(raw: unknown): PlanTermMonths[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [...ALL_TERMS];
+  const out: PlanTermMonths[] = [];
+  for (const v of raw) {
+    const n = Number(v) as PlanTermMonths;
+    if (ALL_TERMS.includes(n) && !out.includes(n)) out.push(n);
+  }
+  return out.length ? out.sort((a, b) => a - b) : [...ALL_TERMS];
+}
+
+function termPriceKey(m: PlanTermMonths): string {
+  return String(m);
+}
+
 type PlanDraft = {
   planName: string;
   maxBranches: string;
   maxStaff: string;
   publicVisible: boolean;
   multiplier: string;
+  allowedTerms: PlanTermMonths[];
 };
 
 type PricingDraft = {
   currency: string;
   gstPercent: string;
-  termBasePrices: Record<"12" | "24" | "36" | "60", string>;
+  termBasePrices: Record<string, string>;
   addOns: {
     extraBranchPrice: string;
     extraUserPrice: string;
@@ -86,6 +115,7 @@ type CreateDraft = {
   maxStaff: string;
   multiplier: string;
   publicVisible: boolean;
+  allowedTerms: PlanTermMonths[];
 };
 
 const emptyCreate = (): CreateDraft => ({
@@ -95,7 +125,62 @@ const emptyCreate = (): CreateDraft => ({
   maxStaff: "3",
   multiplier: "1",
   publicVisible: true,
+  allowedTerms: [...ALL_TERMS],
 });
+
+function TermCheckboxes({
+  value,
+  onChange,
+}: {
+  value?: PlanTermMonths[] | null;
+  onChange: (next: PlanTermMonths[]) => void;
+}) {
+  const selected = normalizeAllowedTerms(value);
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {ALL_TERMS.map((m) => {
+        const checked = selected.includes(m);
+        return (
+          <label
+            key={m}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              padding: "3px 8px",
+              borderRadius: 6,
+              border: `1px solid ${checked ? "#B8E0D8" : "var(--border)"}`,
+              background: checked ? "#EFF8F6" : "transparent",
+              color: checked ? "#3D8F82" : "var(--muted-foreground)",
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  onChange([...selected, m].sort((a, b) => a - b));
+                } else {
+                  const next = selected.filter((t) => t !== m);
+                  if (next.length === 0) {
+                    toast.error("Select at least one billing term.");
+                    return;
+                  }
+                  onChange(next);
+                }
+              }}
+              style={{ margin: 0 }}
+            />
+            {TERM_SHORT[m]}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function PlansPage() {
   const [plans, setPlans] = useState<PlatformPlanTemplate[]>([]);
@@ -122,18 +207,21 @@ export default function PlansPage() {
         maxStaff: limitInput(p.limits.maxStaff),
         publicVisible: p.publicVisible !== false,
         multiplier: String(nextPricing.planMultipliers[p.planCode] ?? 1),
+        allowedTerms: normalizeAllowedTerms(p.allowedTerms),
       };
     }
     setPlanDraft(pd);
+    const termBasePrices: Record<string, string> = {};
+    for (const m of ALL_TERMS) {
+      const key = termPriceKey(m);
+      termBasePrices[key] = String(
+        nextPricing.termBasePrices[key] ?? nextPricing.termBasePrices[m as unknown as string] ?? 0
+      );
+    }
     setPricingDraft({
       currency: nextPricing.currency,
       gstPercent: String(nextPricing.gstPercent),
-      termBasePrices: {
-        "12": String(nextPricing.termBasePrices["12"] ?? nextPricing.termBasePrices[12 as unknown as string] ?? 0),
-        "24": String(nextPricing.termBasePrices["24"] ?? nextPricing.termBasePrices[24 as unknown as string] ?? 0),
-        "36": String(nextPricing.termBasePrices["36"] ?? nextPricing.termBasePrices[36 as unknown as string] ?? 0),
-        "60": String(nextPricing.termBasePrices["60"] ?? nextPricing.termBasePrices[60 as unknown as string] ?? 0),
-      },
+      termBasePrices,
       addOns: {
         extraBranchPrice: String(nextPricing.addOns.extraBranchPrice),
         extraUserPrice: String(nextPricing.addOns.extraUserPrice),
@@ -161,6 +249,13 @@ export default function PlansPage() {
 
   async function handleSave() {
     if (!pricingDraft || !pricing) return;
+    for (const p of plans) {
+      const d = planDraft[p.planCode];
+      if (d && normalizeAllowedTerms(d.allowedTerms).length === 0) {
+        toast.error(`${p.planCode}: select at least one billing term.`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const planOverrides: Partial<Record<string, PlatformPlanOverride>> = {};
@@ -171,6 +266,7 @@ export default function PlansPage() {
         planOverrides[p.planCode] = {
           planName: d.planName.trim() || p.planName,
           publicVisible: d.publicVisible,
+          allowedTerms: normalizeAllowedTerms(d.allowedTerms),
           limits: {
             maxBranches: parseLimit(d.maxBranches),
             maxStaff: parseLimit(d.maxStaff),
@@ -179,17 +275,17 @@ export default function PlansPage() {
         planMultipliers[p.planCode] = numOr(d.multiplier, pricing.planMultipliers[p.planCode] ?? 1);
       }
 
+      const termBasePrices: Partial<Record<PlanTermMonths, number>> = {};
+      for (const m of ALL_TERMS) {
+        termBasePrices[m] = numOr(pricingDraft.termBasePrices[termPriceKey(m)], 0);
+      }
+
       const res = await putPlatformPlans({
         planOverrides,
         pricing: {
           currency: pricingDraft.currency.trim() || "INR",
           gstPercent: numOr(pricingDraft.gstPercent, pricing.gstPercent),
-          termBasePrices: {
-            12: numOr(pricingDraft.termBasePrices["12"], 0),
-            24: numOr(pricingDraft.termBasePrices["24"], 0),
-            36: numOr(pricingDraft.termBasePrices["36"], 0),
-            60: numOr(pricingDraft.termBasePrices["60"], 0),
-          },
+          termBasePrices,
           planMultipliers,
           addOns: {
             extraBranchPrice: numOr(pricingDraft.addOns.extraBranchPrice, 0),
@@ -218,6 +314,10 @@ export default function PlansPage() {
       toast.error("Display name is required.");
       return;
     }
+    if (createDraft.allowedTerms.length === 0) {
+      toast.error("Select at least one billing term.");
+      return;
+    }
     setCreating(true);
     try {
       const res = await createPlatformPlan({
@@ -228,6 +328,7 @@ export default function PlansPage() {
           maxStaff: parseLimit(createDraft.maxStaff),
         },
         publicVisible: createDraft.publicVisible,
+        allowedTerms: createDraft.allowedTerms,
         multiplier: numOr(createDraft.multiplier, 1),
       });
       hydrate(res.plans, res.pricing);
@@ -307,6 +408,7 @@ export default function PlansPage() {
           <Info style={{ width: 14, height: 14, marginTop: 2, flexShrink: 0 }} />
           <span>
             Create custom plan codes, edit limits/pricing, or delete unused plans.
+            Choose which billing terms each plan offers (Monthly, Quarterly, Yearly, 24/36/60 months).
             Source: <strong>{pricing?.source === "platform_settings" ? "Admin (saved)" : "Server defaults"}</strong>.
             Delete fails if any organization still uses that plan.
           </span>
@@ -316,7 +418,7 @@ export default function PlansPage() {
         {loading ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} style={{ height: 220, borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }} />
+              <div key={i} style={{ height: 280, borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }} />
             ))}
           </div>
         ) : (
@@ -365,6 +467,15 @@ export default function PlansPage() {
                       <input value={d.multiplier} onChange={(e) => setPlanDraft({ ...planDraft, [p.planCode]: { ...d, multiplier: e.target.value } })} style={inputStyle} />
                     </div>
                   </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 6 }}>Billing terms</div>
+                    <TermCheckboxes
+                      value={d.allowedTerms}
+                      onChange={(allowedTerms) =>
+                        setPlanDraft({ ...planDraft, [p.planCode]: { ...d, allowedTerms } })
+                      }
+                    />
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
                     1-year base ≈ <strong style={{ color: "var(--foreground)" }}>{formatCurrency(annual, currency)}</strong>
                   </div>
@@ -390,21 +501,24 @@ export default function PlansPage() {
           <AdminTable>
             <THead><tr><Th>Term</Th><Th>Amount ({currency})</Th></tr></THead>
             <TBody>
-              {(["12", "24", "36", "60"] as const).map((m) => (
-                <Tr key={m}>
-                  <Td style={{ fontWeight: 500 }}>{TERM_LABELS[m]}</Td>
-                  <Td>
-                    <input
-                      value={pricingDraft.termBasePrices[m]}
-                      onChange={(e) => setPricingDraft({
-                        ...pricingDraft,
-                        termBasePrices: { ...pricingDraft.termBasePrices, [m]: e.target.value },
-                      })}
-                      style={{ ...inputStyle, maxWidth: 160 }}
-                    />
-                  </Td>
-                </Tr>
-              ))}
+              {ALL_TERMS.map((m) => {
+                const key = termPriceKey(m);
+                return (
+                  <Tr key={key}>
+                    <Td style={{ fontWeight: 500 }}>{TERM_LABELS[key]}</Td>
+                    <Td>
+                      <input
+                        value={pricingDraft.termBasePrices[key] ?? ""}
+                        onChange={(e) => setPricingDraft({
+                          ...pricingDraft,
+                          termBasePrices: { ...pricingDraft.termBasePrices, [key]: e.target.value },
+                        })}
+                        style={{ ...inputStyle, maxWidth: 160 }}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
             </TBody>
           </AdminTable>
         )}
@@ -467,9 +581,10 @@ export default function PlansPage() {
         >
           <div
             style={{
-              width: "100%", maxWidth: 420, background: "var(--card)",
+              width: "100%", maxWidth: 440, background: "var(--card)",
               border: "1px solid var(--border)", borderRadius: 12, padding: 20,
               display: "flex", flexDirection: "column", gap: 12,
+              maxHeight: "90vh", overflowY: "auto",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -508,6 +623,13 @@ export default function PlansPage() {
                 <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4 }}>Multiplier</div>
                 <input value={createDraft.multiplier} onChange={(e) => setCreateDraft({ ...createDraft, multiplier: e.target.value })} style={inputStyle} />
               </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 6 }}>Billing terms</div>
+              <TermCheckboxes
+                value={createDraft.allowedTerms}
+                onChange={(allowedTerms) => setCreateDraft({ ...createDraft, allowedTerms })}
+              />
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
               <input

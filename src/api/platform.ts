@@ -132,6 +132,56 @@ export async function listPlatformAudit(params?: {
   return apiClient.get(`/api/platform/audit${qs}`);
 }
 
+// ─── Organization Activity (Workshop activityLogs) ────────────────────────────
+
+export interface OrganizationActivityRow {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  entityLabel: string | null;
+  userId: string | null;
+  userName: string | null;
+  details: string | null;
+  createdAt: string;
+}
+
+export interface OrganizationActivityResponse {
+  activities: OrganizationActivityRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  organization: { id: string; name: string };
+}
+
+export async function listPlatformOrganizationActivity(
+  orgId: string,
+  params?: {
+    action?: string;
+    entityType?: string;
+    actor?: string;
+    search?: string;
+    since?: string;
+    until?: string;
+    page?: number;
+    limit?: number;
+  }
+): Promise<OrganizationActivityResponse> {
+  const q = new URLSearchParams();
+  if (params?.action) q.set("action", params.action);
+  if (params?.entityType) q.set("entityType", params.entityType);
+  if (params?.actor) q.set("actor", params.actor);
+  if (params?.search) q.set("search", params.search);
+  if (params?.since) q.set("since", params.since);
+  if (params?.until) q.set("until", params.until);
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.limit) q.set("limit", String(params.limit));
+  const qs = q.toString() ? `?${q}` : "";
+  return apiClient.get(`/api/platform/organizations/${encodeURIComponent(orgId)}/activity${qs}`);
+}
+
 // ─── Referrals ────────────────────────────────────────────────────────────────
 
 export interface PlatformReferralCode {
@@ -261,6 +311,9 @@ export async function listPlatformBranches(params?: {
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
+/** Supported billing term lengths in months. */
+export type PlanTermMonths = 1 | 3 | 12 | 24 | 36 | 60;
+
 export interface PlatformPlanTemplate {
   planCode: string;
   planName: string;
@@ -270,11 +323,14 @@ export interface PlatformPlanTemplate {
     maxCustomers?: number | null;
   };
   publicVisible?: boolean;
+  /** Term lengths this plan may be sold on. */
+  allowedTerms?: PlanTermMonths[];
 }
 
 export interface PlatformPlanOverride {
   planName?: string;
   publicVisible?: boolean;
+  allowedTerms?: PlanTermMonths[];
   limits?: {
     maxBranches?: number | null;
     maxStaff?: number | null;
@@ -313,7 +369,7 @@ export async function putPlatformPlans(input: {
   pricing?: {
     currency?: string;
     gstPercent?: number;
-    termBasePrices?: Partial<Record<12 | 24 | 36 | 60, number>>;
+    termBasePrices?: Partial<Record<PlanTermMonths, number>>;
     planMultipliers?: Partial<Record<string, number>>;
     addOns?: Partial<{
       extraBranchPrice: number;
@@ -335,6 +391,7 @@ export async function createPlatformPlan(input: {
     maxCustomers?: number | null;
   };
   publicVisible?: boolean;
+  allowedTerms?: PlanTermMonths[];
   multiplier?: number;
 }): Promise<PlatformPlansResponse> {
   return apiClient.post("/api/platform/plans", input);

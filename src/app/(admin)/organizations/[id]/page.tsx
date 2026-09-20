@@ -48,6 +48,7 @@ import {
   type PlatformBranchRow,
   type PlatformAuditRow,
 } from "@/api/platform";
+import { OrganizationActivityPanel } from "@/components/shared/organization-activity-panel";
 import {
   formatCurrency,
   formatDate,
@@ -863,14 +864,30 @@ export default function OrgDetailPage() {
             </OrgCardBody>
           </OrgCard>
 
-          {/* Row 6 – Audit logs (org-scoped) */}
+          {/* Row 6 – Organization Activity (Workshop activityLogs) */}
           <OrgCard>
             <OrgCardHeader
-              title="Audit Logs"
+              title="Organization Activity"
+              subtitle="Workshop operational events for this organization only"
+            />
+            <OrgCardBody>
+              <OrganizationActivityPanel
+                organizationId={org.organization.id}
+                organizationName={org.organization.name}
+                embedded
+                pageSize={20}
+              />
+            </OrgCardBody>
+          </OrgCard>
+
+          {/* Row 7 – Platform audit (org-scoped SaaS events) */}
+          <OrgCard>
+            <OrgCardHeader
+              title="Platform Audit"
               subtitle={
                 orgDirectoryLoading
                   ? "Loading…"
-                  : `${orgLogs.length} event${orgLogs.length !== 1 ? "s" : ""} for this organization`
+                  : `${orgLogs.length} platform event${orgLogs.length !== 1 ? "s" : ""} for this organization`
               }
             />
             <OrgCardBody>
@@ -879,7 +896,7 @@ export default function OrgDetailPage() {
                   {[0, 1, 2].map((i) => <Skel key={i} h={36} />)}
                 </div>
               ) : orgLogs.length === 0 ? (
-                <EmptyState icon={ClipboardList} message="No audit events for this organization." />
+                <EmptyState icon={ClipboardList} message="No platform audit events for this organization." />
               ) : (
                 <div style={{ overflowX: "auto", margin: "0 -4px" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
