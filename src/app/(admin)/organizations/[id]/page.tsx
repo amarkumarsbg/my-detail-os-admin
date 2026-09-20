@@ -37,6 +37,7 @@ import {
   patchOrganizationSubscription,
   verifyPayment,
   markPaid,
+  convertTrial,
 } from "@/api/organizations";
 import {
   getPlatformPlans,
@@ -240,6 +241,7 @@ export default function OrgDetailPage() {
   const [markPaidTxn, setMarkPaidTxn] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+  const [convertTrialLoading, setConvertTrialLoading] = useState(false);
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
 
   async function load(silent = false) {
@@ -324,6 +326,30 @@ export default function OrgDetailPage() {
       toast.error(e instanceof Error ? e.message : "Failed to mark as paid.");
     } finally {
       setMarkPaidLoading(false);
+    }
+  }
+
+
+  async function handleConvertTrial() {
+    if (!org) return;
+    const ok = window.confirm(
+      "Convert this trial to an ACTIVE subscription?\n\n" +
+        "This does not charge a payment gateway. Choose OK to activate with markPaid=true (manual conversion)."
+    );
+    if (!ok) return;
+    setConvertTrialLoading(true);
+    try {
+      await convertTrial(org.organization.id, {
+        markPaid: true,
+        termMonths: 12,
+        notes: "Converted from trial via Admin Portal",
+      });
+      toast.success("Trial converted to ACTIVE subscription.");
+      await load(true);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to convert trial.");
+    } finally {
+      setConvertTrialLoading(false);
     }
   }
 
@@ -517,7 +543,7 @@ export default function OrgDetailPage() {
                     onChange={setPatchStatus}
                     disabled={patching}
                     fullWidth
-                    options={["ACTIVE","PAST_DUE","EXPIRED","CANCELLED"].map((s) => ({ value: s, label: s }))}
+                    options={["TRIAL","ACTIVE","PAST_DUE","EXPIRED","CANCELLED"].map((s) => ({ value: s, label: s }))}
                   />
                 </FormField>
                 <FormField label="Notes (optional)">
@@ -536,6 +562,28 @@ export default function OrgDetailPage() {
               <OrgCardHeader title="Quick Actions" subtitle="Perform administrative actions on this organization." />
               <OrgCardBody>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {org.subscription.status === "TRIAL" && (
+                  <button
+                    type="button"
+                    onClick={handleConvertTrial}
+                    disabled={convertTrialLoading || lifecycleLoading}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(16,185,129,0.12)", border: "1px solid var(--border)", borderRadius: 10, cursor: convertTrialLoading ? "not-allowed" : "pointer", opacity: convertTrialLoading ? 0.7 : 1, textAlign: "left", transition: "background 0.12s" }}
+                  >
+                    <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(16,185,129,0.2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <CheckCircle2 style={{ width: 16, height: 16, color: "#059669" }} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                        {convertTrialLoading ? "Converting…" : "Convert Trial"}
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                        Move TRIAL → ACTIVE (manual; no payment gateway)
+                      </span>
+                    </span>
+                    {convertTrialLoading && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                  </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setMarkPaidOpen(true)}

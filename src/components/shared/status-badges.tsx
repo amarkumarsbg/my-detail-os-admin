@@ -8,6 +8,7 @@ import type {
 
 export function SubscriptionStatusBadge({ status }: { status: SubscriptionStatus }) {
   const map: Record<SubscriptionStatus, { label: string; variant: "success" | "warning" | "destructive" | "muted" }> = {
+    TRIAL: { label: "Trial", variant: "warning" },
     ACTIVE: { label: "Active", variant: "success" },
     PAST_DUE: { label: "Past Due", variant: "warning" },
     EXPIRED: { label: "Expired", variant: "destructive" },

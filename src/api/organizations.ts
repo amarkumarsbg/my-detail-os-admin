@@ -58,3 +58,32 @@ export async function markPaid(
     input
   );
 }
+
+export async function convertTrial(
+  orgId: string,
+  input: {
+    termMonths?: 1 | 3 | 12 | 24 | 36 | 60;
+    planCode?: string;
+    markPaid?: boolean;
+    notes?: string | null;
+  } = {}
+): Promise<unknown> {
+  return apiClient.post(
+    `/api/platform/organizations/${orgId}/subscription/convert-trial`,
+    input
+  );
+}
+
+export async function provisionOrganization(input: {
+  businessName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  password: string;
+  branchName?: string;
+  planCode?: string;
+  referralCode?: string | null;
+  trialDays?: number;
+}): Promise<unknown> {
+  return apiClient.post(`/api/platform/organizations/provision`, input);
+}

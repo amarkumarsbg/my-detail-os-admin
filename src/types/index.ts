@@ -30,7 +30,7 @@ export interface AuthSession {
 /** Dynamic plan code (was fixed enum; now free-form e.g. STARTER, PRO_PLUS). */
 export type PlanCode = string;
 
-export type SubscriptionStatus = "ACTIVE" | "PAST_DUE" | "EXPIRED" | "CANCELLED";
+export type SubscriptionStatus = "ACTIVE" | "PAST_DUE" | "EXPIRED" | "CANCELLED" | "TRIAL";
 
 export type SubscriptionPaymentStatus = "PAID" | "PENDING" | "PROCESSING" | "FAILED";
 
