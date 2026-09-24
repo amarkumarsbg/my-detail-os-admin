@@ -1,6 +1,6 @@
-# Prime Detailers — SaaS Admin Portal
+# MY DETAIL OS — SaaS Admin Portal
 
-A separate frontend portal for the Prime Detailers **platform owner** (SUPER_ADMIN / PLATFORM_OWNER) to manage all customer organizations, subscriptions, billing, and payments.
+A separate frontend portal for the MY DETAIL OS **platform owner** (SUPER_ADMIN / PLATFORM_OWNER) to manage all customer organizations, subscriptions, billing, and payments.
 
 ## Architecture
 
@@ -55,11 +55,11 @@ npm run build
 npm start
 ```
 
-Deploy to: `admin.primedetailers.com`
+Deploy to: `admin.mydetailos.com`
 
-Workshop App at: `app.primedetailers.com`
+Workshop App at: `app.mydetailos.com`
 
-API at: `api.primedetailers.com`
+API at: `api.mydetailos.com`
 
 ## Project Structure
 

@@ -3,11 +3,11 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Prime Detailers — Admin",
-  description: "Platform administration portal for Prime Detailers",
+  title: "MY DETAIL OS — Admin",
+  description: "Platform administration portal for MY DETAIL OS",
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png" },
       { url: "/favicon.png", type: "image/png" },
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },

@@ -1,5 +1,5 @@
 /**
- * Typed API client for the Prime Detailers backend.
+ * Typed API client for the MY DETAIL OS backend.
  * Reads the base URL from NEXT_PUBLIC_API_URL.
  * Attaches the stored Bearer token on every request.
  */

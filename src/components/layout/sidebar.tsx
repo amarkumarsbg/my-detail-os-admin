@@ -102,7 +102,7 @@ export function Sidebar() {
           href="/dashboard"
           onClick={handleNav}
           title="Go to dashboard"
-          aria-label="Prime Detailers Admin — Dashboard"
+          aria-label="MY DETAIL OS Admin — Dashboard"
           style={{
             display: "flex",
             alignItems: "center",
@@ -116,23 +116,23 @@ export function Sidebar() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/icon.svg"
+            src="/my-detail-os-mark.png"
             alt=""
             width={36}
             height={36}
             style={{
               width: 36,
               height: 36,
-              borderRadius: "50%",
+              borderRadius: 10,
               flexShrink: 0,
               display: "block",
-              objectFit: "contain",
+              objectFit: "cover",
             }}
           />
           {!isCollapsed && (
             <div style={{ minWidth: 0, overflow: "hidden", flex: 1 }}>
               <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap" }}>
-                Prime Detailers
+                MY DETAIL OS
               </p>
               <p style={{ fontSize: "11px", color: "var(--muted-foreground)", margin: 0, opacity: 0.8 }}>Admin</p>
             </div>

@@ -64,24 +64,22 @@ export default function LoginPage() {
       >
         {/* Logo + heading */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <div
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/my-detail-os-mark.png"
+            alt="MY DETAIL OS"
+            width={56}
+            height={56}
             style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "12px",
-              background: "#50B0A0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              objectFit: "cover",
+              display: "block",
               margin: "0 auto 16px",
-              fontWeight: 700,
-              fontSize: "18px",
-              color: "#fff",
-              letterSpacing: "-0.5px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
             }}
-          >
-            P
-          </div>
+          />
           <h1
             style={{
               fontSize: "20px",
@@ -91,7 +89,7 @@ export default function LoginPage() {
               letterSpacing: "-0.3px",
             }}
           >
-            Prime Detailers Admin
+            MY DETAIL OS Admin
           </h1>
           <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>
             Sign in to your admin account
@@ -267,7 +265,7 @@ export default function LoginPage() {
             marginBottom: 0,
           }}
         >
-          Prime Detailers Admin Portal
+          MY DETAIL OS Admin Portal
         </p>
       </div>
 
