@@ -241,7 +241,11 @@ export default function OrgDetailPage() {
   const [markPaidTxn, setMarkPaidTxn] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+  const [convertTrialOpen, setConvertTrialOpen] = useState(false);
   const [convertTrialLoading, setConvertTrialLoading] = useState(false);
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("Admin suspension");
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
 
   async function load(silent = false) {
@@ -332,11 +336,6 @@ export default function OrgDetailPage() {
 
   async function handleConvertTrial() {
     if (!org) return;
-    const ok = window.confirm(
-      "Convert this trial to an ACTIVE subscription?\n\n" +
-        "This does not charge a payment gateway. Choose OK to activate with markPaid=true (manual conversion)."
-    );
-    if (!ok) return;
     setConvertTrialLoading(true);
     try {
       await convertTrial(org.organization.id, {
@@ -345,6 +344,7 @@ export default function OrgDetailPage() {
         notes: "Converted from trial via Admin Portal",
       });
       toast.success("Trial converted to ACTIVE subscription.");
+      setConvertTrialOpen(false);
       await load(true);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to convert trial.");
@@ -366,12 +366,17 @@ export default function OrgDetailPage() {
 
   async function handleSuspend() {
     if (!org) return;
-    const reason = window.prompt("Suspension reason (required):", "Admin suspension");
-    if (!reason || !reason.trim()) return;
+    const reason = suspendReason.trim();
+    if (!reason) {
+      toast.error("Suspension reason is required.");
+      return;
+    }
     setLifecycleLoading(true);
     try {
-      await suspendOrg(org.organization.id, reason.trim());
+      await suspendOrg(org.organization.id, reason);
       toast.success("Organization suspended.");
+      setSuspendOpen(false);
+      setSuspendReason("Admin suspension");
       await load(true);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to suspend.");
@@ -382,11 +387,11 @@ export default function OrgDetailPage() {
 
   async function handleRestore() {
     if (!org) return;
-    if (!window.confirm("Restore this organization to ACTIVE?")) return;
     setLifecycleLoading(true);
     try {
       await restoreOrg(org.organization.id, "Admin restore");
       toast.success("Organization restored.");
+      setRestoreOpen(false);
       await load(true);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to restore.");
@@ -565,7 +570,7 @@ export default function OrgDetailPage() {
                   {org.subscription.status === "TRIAL" && (
                   <button
                     type="button"
-                    onClick={handleConvertTrial}
+                    onClick={() => setConvertTrialOpen(true)}
                     disabled={convertTrialLoading || lifecycleLoading}
                     style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(16,185,129,0.12)", border: "1px solid var(--border)", borderRadius: 10, cursor: convertTrialLoading ? "not-allowed" : "pointer", opacity: convertTrialLoading ? 0.7 : 1, textAlign: "left", transition: "background 0.12s" }}
                   >
@@ -609,7 +614,7 @@ export default function OrgDetailPage() {
                   {org.subscription.status === "CANCELLED" ? (
                     <button
                       type="button"
-                      onClick={handleRestore}
+                      onClick={() => setRestoreOpen(true)}
                       disabled={lifecycleLoading}
                       style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, cursor: lifecycleLoading ? "not-allowed" : "pointer", opacity: lifecycleLoading ? 0.7 : 1, textAlign: "left" }}
                     >
@@ -625,7 +630,7 @@ export default function OrgDetailPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={handleSuspend}
+                      onClick={() => { setSuspendReason("Admin suspension"); setSuspendOpen(true); }}
                       disabled={lifecycleLoading}
                       style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, cursor: lifecycleLoading ? "not-allowed" : "pointer", opacity: lifecycleLoading ? 0.7 : 1, textAlign: "left" }}
                     >
@@ -920,10 +925,99 @@ export default function OrgDetailPage() {
                 <Input placeholder=" e.g. Cash payment received" value={markPaidNotes} onChange={(e) => setMarkPaidNotes(e.target.value)} disabled={markPaidLoading} />
               </FormField>
             </div>
-            <div style={{ padding: "12px 24px 20px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid #f1f5f9" }}>
+            <div style={{ padding: "12px 24px 20px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)" }}>
               <Button variant="outline" onClick={() => setMarkPaidOpen(false)} disabled={markPaidLoading} style={{ minWidth: 100 }}>Cancel</Button>
               <Button onClick={handleMarkPaid} disabled={markPaidLoading} className="min-w-35">
                 {markPaidLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Confirming…</> : "Confirm Mark Paid"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Convert Trial Modal */}
+      {convertTrialOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "12px" }}>
+          <div style={{ background: "var(--card)", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", width: "100%", maxWidth: 440, overflow: "hidden" }}>
+            <div style={{ padding: "24px 24px 0" }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--foreground)" }}>Convert Trial</h2>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                Convert the trial for{" "}
+                <strong style={{ color: "var(--foreground)" }}>{org.organization.name}</strong>{" "}
+                to an ACTIVE subscription. This does not charge a payment gateway — it activates with markPaid=true (manual conversion).
+              </p>
+            </div>
+            <div style={{ padding: "12px 24px 20px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)", marginTop: 20 }}>
+              <Button variant="outline" onClick={() => setConvertTrialOpen(false)} disabled={convertTrialLoading} style={{ minWidth: 100 }}>Cancel</Button>
+              <Button onClick={handleConvertTrial} disabled={convertTrialLoading} className="min-w-35">
+                {convertTrialLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Converting…</> : "Convert to Active"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Modal */}
+      {suspendOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "12px" }}>
+          <div style={{ background: "var(--card)", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", width: "100%", maxWidth: 440, overflow: "hidden" }}>
+            <div style={{ padding: "24px 24px 0" }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--foreground)" }}>Suspend Organization</h2>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                This will cancel the subscription and restrict access for{" "}
+                <strong style={{ color: "var(--foreground)" }}>{org.organization.name}</strong>.
+                A reason is required.
+              </p>
+            </div>
+            <div style={{ padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px)", display: "flex", flexDirection: "column", gap: 14 }}>
+              <FormField label="Suspension reason">
+                <Input
+                  placeholder="e.g. Non-payment / policy violation"
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  disabled={lifecycleLoading}
+                  autoFocus
+                />
+              </FormField>
+            </div>
+            <div style={{ padding: "12px 24px 20px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)" }}>
+              <Button
+                variant="outline"
+                onClick={() => { setSuspendOpen(false); setSuspendReason("Admin suspension"); }}
+                disabled={lifecycleLoading}
+                style={{ minWidth: 100 }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleSuspend}
+                disabled={lifecycleLoading || !suspendReason.trim()}
+                className="min-w-35"
+              >
+                {lifecycleLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Suspending…</> : "Suspend"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Modal */}
+      {restoreOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "12px" }}>
+          <div style={{ background: "var(--card)", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", width: "100%", maxWidth: 440, overflow: "hidden" }}>
+            <div style={{ padding: "24px 24px 0" }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--foreground)" }}>Restore Organization</h2>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                Restore{" "}
+                <strong style={{ color: "var(--foreground)" }}>{org.organization.name}</strong>{" "}
+                and set the subscription status back to ACTIVE.
+              </p>
+            </div>
+            <div style={{ padding: "12px 24px 20px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)", marginTop: 20 }}>
+              <Button variant="outline" onClick={() => setRestoreOpen(false)} disabled={lifecycleLoading} style={{ minWidth: 100 }}>Cancel</Button>
+              <Button onClick={handleRestore} disabled={lifecycleLoading} className="min-w-35">
+                {lifecycleLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Restoring…</> : "Restore"}
               </Button>
             </div>
           </div>
