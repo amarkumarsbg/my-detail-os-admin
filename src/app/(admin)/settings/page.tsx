@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CreditCard, Activity, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -51,6 +51,65 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   boxSizing: "border-box",
 };
+
+/** Digits-only field that won't turn `0` + `5` into `05`. */
+function IntField({
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min: number;
+  max: number;
+}) {
+  const [text, setText] = useState(() => String(value));
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusedRef.current) setText(String(value));
+  }, [value]);
+
+  function commit(raw: string) {
+    if (raw.trim() === "") {
+      onChange(min);
+      setText(String(min));
+      return;
+    }
+    const n = Math.min(max, Math.max(min, Number.parseInt(raw, 10) || min));
+    onChange(n);
+    setText(String(n));
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      autoComplete="off"
+      value={text}
+      onFocus={(e) => {
+        focusedRef.current = true;
+        e.currentTarget.select();
+      }}
+      onBlur={() => {
+        focusedRef.current = false;
+        commit(text);
+      }}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/\D/g, "");
+        // "05" / "005" → "5"; keep "" while clearing
+        const cleaned = digits.replace(/^0+(?=\d)/, "");
+        setText(cleaned);
+        if (cleaned === "") return;
+        const n = Math.min(max, Math.max(min, Number.parseInt(cleaned, 10)));
+        onChange(n);
+      }}
+      style={inputStyle}
+    />
+  );
+}
 
 export default function SettingsPage() {
   const cachedUser = useAuthStore((s) => s.user);
@@ -151,13 +210,11 @@ export default function SettingsPage() {
                     {active === "trial" && (
                       <div>
                         <FieldLabel>Trial days default</FieldLabel>
-                        <input
-                          type="number"
-                          min={1}
-                          max={90}
+                        <IntField
                           value={draft.trialDaysDefault}
-                          onChange={(e) => setDraft({ ...draft, trialDaysDefault: Number(e.target.value) })}
-                          style={inputStyle}
+                          min={0}
+                          max={90}
+                          onChange={(n) => setDraft({ ...draft, trialDaysDefault: n })}
                         />
                       </div>
                     )}
@@ -182,12 +239,24 @@ export default function SettingsPage() {
                         <div>
                           <FieldLabel>Default GST %</FieldLabel>
                           <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={0.01}
-                            value={draft.defaultGstPercent}
-                            onChange={(e) => setDraft({ ...draft, defaultGstPercent: Number(e.target.value) })}
+                            type="text"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            value={String(draft.defaultGstPercent)}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => {
+                              const raw = e.target.value.trim().replace(/[^\d.]/g, "");
+                              if (raw === "" || raw === ".") {
+                                setDraft({ ...draft, defaultGstPercent: 0 });
+                                return;
+                              }
+                              const n = Number(raw);
+                              if (Number.isNaN(n)) return;
+                              setDraft({
+                                ...draft,
+                                defaultGstPercent: Math.min(100, Math.max(0, n)),
+                              });
+                            }}
                             style={inputStyle}
                           />
                         </div>
