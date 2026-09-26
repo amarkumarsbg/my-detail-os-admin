@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
+import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 
 const NAV_SECTIONS = [
   {
@@ -50,6 +51,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, clearSession } = useAuthStore();
   const { collapsed, collapse, closeMobile } = useSidebarStore();
+  const pendingPayments = usePendingPaymentsStore((s) => s.count);
+  const startPolling = usePendingPaymentsStore((s) => s.startPolling);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -59,6 +62,8 @@ export function Sidebar() {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+
+  useEffect(() => startPolling(), [startPolling]);
 
   // On mobile always show full sidebar; collapsed only applies on desktop
   const W = (collapsed && !isMobile) ? "56px" : "260px";
@@ -166,12 +171,28 @@ export function Sidebar() {
             <div style={{ display: "flex", flexDirection: "column", gap: "2px", padding: isCollapsed ? "0 4px" : "0 6px" }}>
               {section.items.map(({ label, href, icon: Icon }) => {
                 const active = isActive(pathname, href);
+                const badge =
+                  href === "/payments" && pendingPayments > 0
+                    ? pendingPayments > 99
+                      ? "99+"
+                      : String(pendingPayments)
+                    : null;
+                const navHref =
+                  href === "/payments" && pendingPayments > 0
+                    ? "/payments?status=review"
+                    : href;
                 return (
                   <Link
                     key={href}
-                    href={href}
-                    title={isCollapsed ? label : undefined}
-                    aria-label={label}
+                    href={navHref}
+                    title={
+                      isCollapsed
+                        ? badge
+                          ? `${label} (${badge} pending)`
+                          : label
+                        : undefined
+                    }
+                    aria-label={badge ? `${label}, ${badge} pending` : label}
                     onClick={handleNav}
                     style={{
                       display: "flex",
@@ -187,6 +208,7 @@ export function Sidebar() {
                       color: active ? "#ffffff" : "var(--sidebar-foreground)",
                       justifyContent: isCollapsed ? "center" : undefined,
                       transformOrigin: "left center",
+                      position: "relative",
                     }}
                     onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLAnchorElement;
@@ -205,8 +227,60 @@ export function Sidebar() {
                       }
                     }}
                   >
-                    <Icon style={{ width: "16px", height: "16px", flexShrink: 0, opacity: active ? 1 : 0.9 }} />
-                    {!isCollapsed && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>}
+                    <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                      <Icon style={{ width: "16px", height: "16px", opacity: active ? 1 : 0.9 }} />
+                      {badge && isCollapsed && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: -6,
+                            right: -8,
+                            minWidth: 16,
+                            height: 16,
+                            padding: "0 4px",
+                            borderRadius: 999,
+                            background: "#ea580c",
+                            color: "#fff",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            lineHeight: 1,
+                            boxShadow: "0 0 0 2px var(--card)",
+                          }}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                    {!isCollapsed && (
+                      <>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                          {label}
+                        </span>
+                        {badge && (
+                          <span
+                            style={{
+                              minWidth: 20,
+                              height: 20,
+                              padding: "0 6px",
+                              borderRadius: 999,
+                              background: active ? "rgba(255,255,255,0.25)" : "#ea580c",
+                              color: "#fff",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {badge}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </Link>
                 );
               })}

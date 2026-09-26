@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -13,23 +14,87 @@ import { PaymentStatusBadge } from "@/components/shared/status-badges";
 import { listPlatformPayments, type PlatformPaymentRow } from "@/api/platform";
 import { verifyPayment } from "@/api/organizations";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { usePendingPaymentsStore } from "@/store/pending-payments-store";
+
+function normalizeStatusFilter(raw: string | null): string {
+  if (!raw) return "all";
+  const v = raw.trim().toUpperCase();
+  if (v === "REVIEW" || v === "NEEDS_REVIEW") return "review";
+  if (["PENDING", "PROCESSING", "PAID", "FAILED", "ALL"].includes(v)) {
+    return v === "ALL" ? "all" : v;
+  }
+  if (raw === "review") return "review";
+  return "all";
+}
 
 export default function PaymentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+          <Topbar title="Payments" description="Loading…" />
+          <div style={{ flex: 1, padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
+            <AdminTableSkeleton rows={8} cols={10} />
+          </div>
+        </div>
+      }
+    >
+      <PaymentsPageInner />
+    </Suspense>
+  );
+}
+
+function PaymentsPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const refreshPendingBadge = usePendingPaymentsStore((s) => s.refresh);
   const [rows, setRows] = useState<PlatformPaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState(() =>
+    normalizeStatusFilter(searchParams.get("status"))
+  );
   const [filterPlan, setFilterPlan] = useState("all");
   const [search, setSearch] = useState("");
   const [verifying, setVerifying] = useState<string | null>(null); // payment id being verified
 
+  useEffect(() => {
+    setFilterStatus(normalizeStatusFilter(searchParams.get("status")));
+  }, [searchParams]);
+
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
-    try { const res = await listPlatformPayments({ limit: 200, status: filterStatus !== "all" ? filterStatus : undefined }); setRows(res.payments); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to load"); }
-    finally { setLoading(false); setRefreshing(false); }
+    try {
+      if (filterStatus === "review") {
+        const [pendingRes, processingRes] = await Promise.all([
+          listPlatformPayments({ limit: 200, status: "PENDING" }),
+          listPlatformPayments({ limit: 200, status: "PROCESSING" }),
+        ]);
+        const byId = new Map<string, PlatformPaymentRow>();
+        for (const p of [...pendingRes.payments, ...processingRes.payments]) {
+          byId.set(p.id, p);
+        }
+        setRows(
+          Array.from(byId.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+        );
+      } else {
+        const res = await listPlatformPayments({
+          limit: 200,
+          status: filterStatus !== "all" ? filterStatus : undefined,
+        });
+        setRows(res.payments);
+      }
+      void refreshPendingBadge({ silentToast: true });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [filterStatus]);
@@ -38,29 +103,56 @@ export default function PaymentsPage() {
   const others = useMemo(() => rows.filter((r) => r.status !== "PENDING" && r.status !== "PROCESSING"), [rows]);
 
   const displayed = useMemo(() => {
-    let all = [...pending, ...others];
+    let all = filterStatus === "review" ? [...pending] : [...pending, ...others];
     if (filterPlan !== "all") {
       all = all.filter(r => r.planName.toUpperCase() === filterPlan || r.planName.toLowerCase() === filterPlan.toLowerCase());
     }
     if (!search) return all;
     const q = search.toLowerCase();
     return all.filter((r) => r.organizationName.toLowerCase().includes(q) || (r.txnReference ?? "").toLowerCase().includes(q));
-  }, [pending, others, search, filterPlan]);
+  }, [pending, others, search, filterPlan, filterStatus]);
+
+  function onStatusChange(value: string) {
+    setFilterStatus(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "all") params.delete("status");
+    else params.set("status", value);
+    const qs = params.toString();
+    router.replace(qs ? `/payments?${qs}` : "/payments");
+  }
 
   async function handleVerify(row: PlatformPaymentRow, outcome: "PAID" | "FAILED") {
     if (verifying) return; // prevent duplicate
     setVerifying(row.id);
-    try { await verifyPayment(row.organizationId, { paymentId: row.id, outcome }); toast.success(`Payment marked as ${outcome}.`); await load(true); }
-    catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setVerifying(null); }
+    try {
+      await verifyPayment(row.organizationId, { paymentId: row.id, outcome });
+      toast.success(`Payment marked as ${outcome}.`);
+      await load(true);
+      void refreshPendingBadge({ silentToast: true });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setVerifying(null);
+    }
   }
+
+  const reviewCount = pending.length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      <Topbar title="Payments" description={`${rows.length} payment records`} />
+      <RefreshingBar show={refreshing} />
+      <Topbar
+        title="Payments"
+        description={
+          filterStatus === "review"
+            ? `${reviewCount} payment${reviewCount === 1 ? "" : "s"} awaiting review`
+            : `${rows.length} payment records`
+        }
+      />
       <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search org or txn ref…" onRefresh={() => load(true)} refreshing={refreshing}>
-        <FilterSelect value={filterStatus} onChange={setFilterStatus} options={[
+        <FilterSelect value={filterStatus} onChange={onStatusChange} options={[
           { value: "all", label: "All Statuses" },
+          { value: "review", label: "Needs review" },
           { value: "PENDING", label: "Pending" },
           { value: "PROCESSING", label: "Processing" },
           { value: "PAID", label: "Paid" },

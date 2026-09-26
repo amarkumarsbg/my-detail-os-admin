@@ -28,6 +28,7 @@ import {
   type PlatformAuditRow,
 } from "@/api/platform";
 import { formatCurrency, formatDate, formatDateTime, daysRemainingLabel } from "@/lib/utils";
+import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import type { OrgListItem } from "@/types";
 
 function subscribedAt(org: OrgListItem): number {
@@ -53,23 +54,25 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [verifying, setVerifying] = useState<string | null>(null);
+  const refreshPendingBadge = usePendingPaymentsStore((s) => s.refresh);
 
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [dashData, orgsData, paymentsRes, pendingRes, auditRes] = await Promise.all([
+      const [dashData, orgsData, paymentsRes, pendingRes, processingRes, auditRes] = await Promise.all([
         getPlatformDashboard(),
         listOrganizations(),
         listPlatformPayments({ limit: 15 }).catch(() => ({ payments: [] as PlatformPaymentRow[], total: 0 })),
         listPlatformPayments({ limit: 20, status: "PENDING" }).catch(() => ({ payments: [] as PlatformPaymentRow[], total: 0 })),
+        listPlatformPayments({ limit: 20, status: "PROCESSING" }).catch(() => ({ payments: [] as PlatformPaymentRow[], total: 0 })),
         listPlatformAudit({ limit: 5 }).catch(() => ({ logs: [], total: 0 })),
       ]);
       setDash(dashData);
       setOrgs(orgsData);
       // Prefer pending first, then other recent payments (deduped)
       const byId = new Map<string, PlatformPaymentRow>();
-      for (const p of [...pendingRes.payments, ...paymentsRes.payments]) {
+      for (const p of [...pendingRes.payments, ...processingRes.payments, ...paymentsRes.payments]) {
         if (!byId.has(p.id)) byId.set(p.id, p);
       }
       const merged = Array.from(byId.values()).sort((a, b) => {
@@ -80,6 +83,7 @@ export default function DashboardPage() {
       });
       setPayments(merged.slice(0, 10));
       setLogs(auditRes.logs);
+      void refreshPendingBadge({ silentToast: true });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -130,6 +134,7 @@ export default function DashboardPage() {
       });
       toast.success(outcome === "PAID" ? "Payment accepted." : "Payment rejected.");
       await load(true);
+      void refreshPendingBadge({ silentToast: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to update payment");
     } finally {
@@ -143,11 +148,14 @@ export default function DashboardPage() {
       <Topbar title="Dashboard" description="Platform overview" />
       <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px)", background: "var(--page-bg)" }}>
         {error && <div style={{ marginBottom: "16px" }}><ErrorBanner message={error} onRetry={load} /></div>}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px", marginBottom: "20px" }}>
           <StatCard label="Total Orgs" value={loading ? "—" : dash?.organizations.total ?? 0} icon={Building2} iconBg="#EFF8F6" iconColor="#50B0A0" loading={loading} />
           <StatCard label="Active Orgs" value={loading ? "—" : dash?.organizations.active ?? 0} sub="isActive" icon={CheckCircle2} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
           <StatCard label="Expiring Soon" value={loading ? "—" : expiringSoon} sub="within 30 days" icon={AlertTriangle} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
-          <StatCard label="Pending Payments" value={loading ? "—" : dash?.pendingPayments ?? 0} sub="awaiting review" icon={CreditCard} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
+          <Link href="/payments?status=review" style={{ textDecoration: "none", color: "inherit" }}>
+            <StatCard label="Pending Payments" value={loading ? "—" : dash?.pendingPayments ?? 0} sub="awaiting review" icon={CreditCard} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
+          </Link>
           <StatCard label="Paid this month" value={loading ? "—" : formatCurrency(dash?.revenueMtd.amount ?? 0, dash?.revenueMtd.currency)} sub={`${dash?.revenueMtd.paidPaymentCount ?? 0} payments`} icon={CreditCard} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
           <StatCard label="Active Referrals" value={loading ? "—" : dash?.activeReferrals ?? 0} icon={Tag} iconBg="#EFF8F6" iconColor="#50B0A0" loading={loading} />
         </div>
