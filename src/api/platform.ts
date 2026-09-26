@@ -473,6 +473,17 @@ export async function getPlatformMessaging(): Promise<PlatformMessagingStatus> {
   return apiClient.get("/api/platform/messaging");
 }
 
+export type PlatformMessagingChannel = "sms" | "whatsapp" | "email";
+
+export async function sendPlatformMessagingTest(input: {
+  channel: PlatformMessagingChannel;
+  to: string;
+  subject?: string;
+  body?: string;
+}): Promise<{ ok: true; channel: PlatformMessagingChannel; to: string }> {
+  return apiClient.post("/api/platform/messaging/test", input);
+}
+
 // ─── Suspend / Restore ────────────────────────────────────────────────────────
 
 export async function suspendOrg(orgId: string, reason: string): Promise<{ suspended: boolean; reason: string }> {

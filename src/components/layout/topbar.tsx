@@ -1,21 +1,26 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell, PanelLeft, Sun, Moon, Menu, CreditCard } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
+const PAYMENTS_REVIEW_HREF = "/payments?status=review";
+
 interface TopbarProps { title?: string; description?: string; actions?: ReactNode; }
 
 export function Topbar({ title, description, actions }: TopbarProps) {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { collapsed, expand, openMobile } = useSidebarStore();
   const pendingCount = usePendingPaymentsStore((s) => s.count);
+  const unreadCount = usePendingPaymentsStore((s) => s.unreadCount);
   const pendingItems = usePendingPaymentsStore((s) => s.items);
   const refreshPending = usePendingPaymentsStore((s) => s.refresh);
+  const markSeen = usePendingPaymentsStore((s) => s.markSeen);
   const [dark, setDark] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -29,7 +34,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
 
   useEffect(() => {
     if (!notifOpen) return;
-    void refreshPending({ silentToast: true });
+    void refreshPending({ silentToast: true }).then(() => markSeen());
 
     function onPointerDown(e: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -45,7 +50,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [notifOpen, refreshPending]);
+  }, [notifOpen, refreshPending, markSeen]);
 
   function toggleDark() {
     const next = !dark;
@@ -54,8 +59,14 @@ export function Topbar({ title, description, actions }: TopbarProps) {
     localStorage.setItem("admin_dark_mode", String(next));
   }
 
+  function goToPaymentsReview() {
+    markSeen();
+    setNotifOpen(false);
+    router.push(PAYMENTS_REVIEW_HREF);
+  }
+
   const badgeLabel =
-    pendingCount > 0 ? (pendingCount > 99 ? "99+" : String(pendingCount)) : null;
+    unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : null;
 
   return (
     <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, padding: "0 16px", background: "var(--topbar-bg)", borderBottom: "1px solid var(--topbar-border)", flexShrink: 0, gap: 8, transition: "background 0.2s, border-color 0.2s" }}
@@ -93,12 +104,10 @@ export function Topbar({ title, description, actions }: TopbarProps) {
 
       {/* Right controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-        {/* Page actions — sm+ only to avoid topbar crowding on mobile */}
         <div className="hidden sm:flex" style={{ alignItems: "center", gap: 4 }}>
           {actions}
         </div>
 
-        {/* Dark mode toggle */}
         <button
           aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
           onClick={toggleDark}
@@ -113,7 +122,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
           <button
             aria-label={
               badgeLabel
-                ? `Notifications, ${badgeLabel} pending`
+                ? `Notifications, ${badgeLabel} unread`
                 : "Notifications"
             }
             aria-expanded={notifOpen}
@@ -206,19 +215,22 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                   </p>
                 </div>
                 {pendingCount > 0 && (
-                  <Link
-                    href="/payments?status=review"
-                    onClick={() => setNotifOpen(false)}
+                  <button
+                    type="button"
+                    onClick={goToPaymentsReview}
                     style={{
                       fontSize: 12,
                       fontWeight: 600,
                       color: "#c2410c",
-                      textDecoration: "none",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
                       whiteSpace: "nowrap",
+                      padding: 0,
                     }}
                   >
                     Review all
-                  </Link>
+                  </button>
                 )}
               </div>
 
@@ -236,23 +248,27 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                   </div>
                 ) : (
                   pendingItems.map((item) => (
-                    <Link
+                    <button
                       key={item.id}
-                      href={`/organizations/${item.organizationId}`}
-                      onClick={() => setNotifOpen(false)}
+                      type="button"
+                      onClick={goToPaymentsReview}
                       style={{
                         display: "flex",
                         gap: 10,
+                        width: "100%",
                         padding: "12px 14px",
-                        textDecoration: "none",
-                        color: "inherit",
+                        border: "none",
                         borderBottom: "1px solid var(--border)",
+                        background: "transparent",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        color: "inherit",
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.background = "var(--accent)";
+                        (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)";
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+                        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                       }}
                     >
                       <span
@@ -297,27 +313,31 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                           {formatDateTime(item.createdAt)}
                         </p>
                       </div>
-                    </Link>
+                    </button>
                   ))
                 )}
               </div>
 
               {pendingCount > 0 && (
                 <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-                  <Link
-                    href="/payments?status=review"
-                    onClick={() => setNotifOpen(false)}
+                  <button
+                    type="button"
+                    onClick={goToPaymentsReview}
                     style={{
                       display: "block",
+                      width: "100%",
                       textAlign: "center",
                       fontSize: 13,
                       fontWeight: 600,
                       color: "#50B0A0",
-                      textDecoration: "none",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
                     }}
                   >
                     Open payments queue →
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>

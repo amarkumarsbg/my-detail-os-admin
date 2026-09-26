@@ -61,6 +61,7 @@ import {
   daysRemainingLabel,
   termLabel,
 } from "@/lib/utils";
+import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import type {
   OrgDetail,
   PlanCode,
@@ -271,6 +272,8 @@ export default function OrgDetailPage() {
   const [markPaidTxn, setMarkPaidTxn] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
+  const refreshPendingBadge = usePendingPaymentsStore((s) => s.refresh);
   const [convertTrialOpen, setConvertTrialOpen] = useState(false);
   const [convertTrialLoading, setConvertTrialLoading] = useState(false);
   const [suspendOpen, setSuspendOpen] = useState(false);
@@ -388,6 +391,7 @@ export default function OrgDetailPage() {
       setMarkPaidOpen(false);
       setMarkPaidAmount(""); setMarkPaidTxn(""); setMarkPaidNotes("");
       await load(true);
+      void refreshPendingBadge({ silentToast: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to mark as paid.");
     } finally {
@@ -416,13 +420,21 @@ export default function OrgDetailPage() {
   }
 
   async function handleVerifyPayment(payment: SubscriptionPaymentRow, outcome: "PAID" | "FAILED") {
-    if (!org) return;
+    if (!org || verifyingPaymentId) return;
+    setVerifyingPaymentId(payment.id);
     try {
       await verifyPayment(org.organization.id, { paymentId: payment.id, outcome, txnReference: payment.txnReference });
-      toast.success(`Payment marked as ${outcome}.`);
+      toast.success(
+        outcome === "PAID"
+          ? "Payment accepted. Workshop access restored."
+          : "Payment marked as Failed."
+      );
       await load(true);
+      void refreshPendingBadge({ silentToast: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Verification failed.");
+    } finally {
+      setVerifyingPaymentId(null);
     }
   }
 
@@ -856,11 +868,25 @@ export default function OrgDetailPage() {
                         <InlineTd>
                           {(p.status === "PENDING" || p.status === "PROCESSING") && (
                             <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                              <Button size="sm" variant="outline" onClick={() => handleVerifyPayment(p, "PAID")} className="shrink-0 whitespace-nowrap text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8 min-w-[72px] px-3 text-xs gap-1.5">
-                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Paid
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!!verifyingPaymentId}
+                                onClick={() => handleVerifyPayment(p, "PAID")}
+                                className="shrink-0 whitespace-nowrap text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8 min-w-[72px] px-3 text-xs gap-1.5"
+                              >
+                                {verifyingPaymentId === p.id ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
+                                Paid
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => handleVerifyPayment(p, "FAILED")} className="shrink-0 whitespace-nowrap text-red-600 border-red-200 hover:bg-red-50 h-8 min-w-[72px] px-3 text-xs gap-1.5">
-                                <XCircle className="h-3.5 w-3.5 shrink-0" /> Failed
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!!verifyingPaymentId}
+                                onClick={() => handleVerifyPayment(p, "FAILED")}
+                                className="shrink-0 whitespace-nowrap text-red-600 border-red-200 hover:bg-red-50 h-8 min-w-[72px] px-3 text-xs gap-1.5"
+                              >
+                                {verifyingPaymentId === p.id ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}
+                                Failed
                               </Button>
                             </div>
                           )}
