@@ -62,10 +62,18 @@
   --sidebar-active: #50B0A0;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+/* Keep reset in @layer base so Tailwind utilities (px-*, py-*, etc.) can override it.
+   An unlayered `* { padding: 0 }` was winning over layered utilities and clipping button labels. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
 }
 
 html, body {

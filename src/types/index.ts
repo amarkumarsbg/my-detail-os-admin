@@ -72,13 +72,24 @@ export interface UsageInfo {
   usersUsed: number;
 }
 
+export interface PlatformOrganizationInfo {
+  id: string;
+  name: string;
+  slug: string | null;
+  isActive?: boolean;
+  createdAt?: string | null;
+  activatedAt?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerPhone?: string | null;
+  ownerUserId?: string | null;
+  primaryBranchName?: string | null;
+  signupSource?: string | null;
+  referralCode?: string | null;
+}
+
 export interface EntitlementPayload {
-  organization: {
-    id: string;
-    name: string;
-    slug: string | null;
-    isActive?: boolean;
-  };
+  organization: PlatformOrganizationInfo;
   subscription: SubscriptionInfo;
   usage: UsageInfo;
   canCreateBranch?: boolean;
@@ -87,30 +98,11 @@ export interface EntitlementPayload {
 
 // ─── Platform Org List ───────────────────────────────────────────────────────
 
-export interface OrgListItem extends EntitlementPayload {
-  organization: {
-    id: string;
-    name: string;
-    slug: string | null;
-    isActive?: boolean;
-    activatedAt?: string | null;
-    ownerName?: string | null;
-    ownerEmail?: string | null;
-  };
-}
+export interface OrgListItem extends EntitlementPayload {}
 
 // ─── Platform Org Detail ─────────────────────────────────────────────────────
 
 export interface OrgDetail extends EntitlementPayload {
-  organization: {
-    id: string;
-    name: string;
-    slug: string | null;
-    isActive?: boolean;
-    activatedAt?: string | null;
-    ownerName?: string | null;
-    ownerEmail?: string | null;
-  };
   payments: SubscriptionPaymentRow[];
   bills: SubscriptionBillRow[];
 }

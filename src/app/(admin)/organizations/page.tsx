@@ -12,7 +12,7 @@ import { listOrganizations } from "@/api/organizations";
 import { formatDate, daysRemainingLabel } from "@/lib/utils";
 import type { OrgListItem, PlanCode } from "@/types";
 
-type FS = "all" | "active" | "expired" | "past_due" | "expiring" | "cancelled";
+type FS = "all" | "active" | "trial" | "expired" | "past_due" | "expiring" | "cancelled";
 
 export default function OrganizationsPage() {
   const [orgs, setOrgs] = useState<OrgListItem[]>([]);
@@ -34,12 +34,27 @@ export default function OrganizationsPage() {
   useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.toLowerCase().trim();
     return orgs.filter((o) => {
-      if (q && !o.organization.name.toLowerCase().includes(q)) return false;
+      if (q) {
+        const hay = [
+          o.organization.name,
+          o.organization.id,
+          o.organization.slug,
+          o.organization.ownerName,
+          o.organization.ownerEmail,
+          o.organization.ownerPhone,
+          o.organization.primaryBranchName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       if (filterPlan !== "all" && o.subscription.planCode !== filterPlan) return false;
       const s = o.subscription;
       if (filterStatus === "active") return s.status === "ACTIVE";
+      if (filterStatus === "trial") return s.status === "TRIAL";
       if (filterStatus === "expired") return s.status === "EXPIRED";
       if (filterStatus === "past_due") return s.status === "PAST_DUE";
       if (filterStatus === "cancelled") return s.status === "CANCELLED";
@@ -51,7 +66,7 @@ export default function OrganizationsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Topbar title="Organizations" description={`${orgs.length} customer organizations`} />
-      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search organizations…" onRefresh={() => load(true)} refreshing={refreshing}>
+      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search name, owner, email, phone, slug…" onRefresh={() => load(true)} refreshing={refreshing}>
         <FilterSelect value={filterPlan} onChange={(v) => setFilterPlan(v as PlanCode | "all")} options={[
           { value: "all", label: "All Plans" },
           { value: "STARTER", label: "Starter" },
@@ -62,6 +77,7 @@ export default function OrganizationsPage() {
         ]} />
         <FilterSelect value={filterStatus} onChange={(v) => setFilterStatus(v as FS)} options={[
           { value: "all", label: "All Statuses" },
+          { value: "trial", label: "Trial" },
           { value: "active", label: "Active" },
           { value: "expired", label: "Expired" },
           { value: "past_due", label: "Past Due" },
@@ -80,13 +96,21 @@ export default function OrganizationsPage() {
             {/* ── Desktop table (md+) ── */}
             <div className="hidden md:block">
               <AdminTable>
-                <THead><tr><Th>Organization</Th><Th>Plan</Th><Th>Status</Th><Th>Expiry</Th><Th>Payment</Th><Th>Branches</Th><Th>Users</Th><Th></Th></tr></THead>
+                <THead><tr><Th>Organization</Th><Th>Owner</Th><Th>Plan</Th><Th>Status</Th><Th>Expiry</Th><Th>Payment</Th><Th>Branches</Th><Th>Users</Th><Th></Th></tr></THead>
                 <TBody>
                   {filtered.map((org) => (
                     <Tr key={org.organization.id}>
                       <Td>
                         <Link href={`/organizations/${org.organization.id}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{org.organization.name}</Link>
-                        <div style={{ fontSize: "11px", color: "var(--muted-foreground)", fontFamily: "monospace" }}>{org.organization.id}</div>
+                        <div style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          {org.organization.slug ? `/${org.organization.slug}` : org.organization.id}
+                        </div>
+                      </Td>
+                      <Td>
+                        <div style={{ fontWeight: 500 }}>{org.organization.ownerName ?? "—"}</div>
+                        <div style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          {org.organization.ownerEmail ?? org.organization.ownerPhone ?? "—"}
+                        </div>
                       </Td>
                       <Td><PlanBadge planCode={org.subscription.planCode} /></Td>
                       <Td><SubscriptionStatusBadge status={org.subscription.status} /></Td>
@@ -110,7 +134,13 @@ export default function OrganizationsPage() {
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                     <div style={{ minWidth: 0 }}>
                       <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 14, fontWeight: 600, color: "#50B0A0", textDecoration: "none", display: "block" }}>{org.organization.name}</Link>
-                      <span style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "monospace" }}>{org.organization.id}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                        {org.organization.ownerName
+                          ? `${org.organization.ownerName}${org.organization.ownerEmail ? ` · ${org.organization.ownerEmail}` : ""}`
+                          : org.organization.slug
+                            ? `/${org.organization.slug}`
+                            : org.organization.id}
+                      </span>
                     </div>
                     <Link href={`/organizations/${org.organization.id}`} style={{ fontSize: 12, fontWeight: 500, color: "#50B0A0", textDecoration: "none", padding: "5px 12px", border: "1px solid #B8E0D8", borderRadius: 6, background: "#EFF8F6", whiteSpace: "nowrap", flexShrink: 0 }}>Manage</Link>
                   </div>

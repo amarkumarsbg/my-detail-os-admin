@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,11 +12,11 @@ import {
   CreditCard,
   FileText,
   Users,
+  UserCog,
   Building2,
   MapPin,
   ClipboardList,
-  ChevronDown,
-  ChevronRight,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -43,6 +43,7 @@ import {
   getPlatformPlans,
   listPlatformUsers,
   listPlatformBranches,
+  createPlatformBranch,
   listPlatformAudit,
   suspendOrg,
   restoreOrg,
@@ -50,7 +51,9 @@ import {
   type PlatformBranchRow,
   type PlatformAuditRow,
 } from "@/api/platform";
+import { ApiError } from "@/lib/api-client";
 import { OrganizationActivityPanel } from "@/components/shared/organization-activity-panel";
+import { PlatformAuditList } from "@/components/shared/platform-audit-list";
 import {
   formatCurrency,
   formatDate,
@@ -75,6 +78,29 @@ const CARD_STYLE: React.CSSProperties = {
   overflow: "hidden",
 };
 
+/** Matches workshop Users tab (office roles). Everyone else is Staff. */
+const WORKSHOP_USER_ROLES = new Set([
+  "BRANCH_MANAGER",
+  "MANAGER",
+  "SUPERVISOR",
+  "RECEPTIONIST",
+]);
+
+const ROLE_DISPLAY: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ADMIN: "Admin",
+  BRANCH_MANAGER: "Branch Manager",
+  MANAGER: "Manager",
+  SUPERVISOR: "Supervisor",
+  RECEPTIONIST: "Receptionist",
+  MECHANIC: "Mechanic",
+  PLATFORM_OWNER: "Platform Owner",
+};
+
+function roleDisplayLabel(role: string): string {
+  return ROLE_DISPLAY[role] ?? role.replace(/_/g, " ");
+}
+
 // ─── Card building blocks ─────────────────────────────────────────────────────
 
 function OrgCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -85,11 +111,15 @@ function OrgCardHeader({ title, subtitle, right }: { title: string; subtitle?: s
   return (
     <div style={{ padding: "20px 24px 0" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.1px" }}>
             {title}
           </h3>
-          {subtitle && <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--muted-foreground)" }}>{subtitle}</p>}
+          {subtitle && (
+            <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--muted-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {subtitle}
+            </p>
+          )}
         </div>
         {right && <div style={{ flexShrink: 0 }}>{right}</div>}
       </div>
@@ -234,7 +264,7 @@ export default function OrgDetailPage() {
   const [orgBranches, setOrgBranches] = useState<PlatformBranchRow[]>([]);
   const [orgLogs, setOrgLogs] = useState<PlatformAuditRow[]>([]);
   const [orgDirectoryLoading, setOrgDirectoryLoading] = useState(false);
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [peopleTab, setPeopleTab] = useState<"staff" | "users">("staff");
 
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [markPaidAmount, setMarkPaidAmount] = useState("");
@@ -247,6 +277,38 @@ export default function OrgDetailPage() {
   const [suspendReason, setSuspendReason] = useState("Admin suspension");
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
+
+  const [addBranchOpen, setAddBranchOpen] = useState(false);
+  const [addBranchLoading, setAddBranchLoading] = useState(false);
+  const [branchForm, setBranchForm] = useState({
+    name: "",
+    code: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    phone: "",
+    email: "",
+    managerName: "",
+    managerPhone: "",
+    isActive: true,
+  });
+
+  function resetBranchForm() {
+    setBranchForm({
+      name: "",
+      code: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      phone: "",
+      email: "",
+      managerName: "",
+      managerPhone: "",
+      isActive: true,
+    });
+  }
 
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -400,6 +462,71 @@ export default function OrgDetailPage() {
     }
   }
 
+  async function handleAddBranch() {
+    if (!org) return;
+    const name = branchForm.name.trim();
+    const address = branchForm.address.trim();
+    const phone = branchForm.phone.replace(/\D/g, "").slice(0, 10);
+    const managerPhone = branchForm.managerPhone.replace(/\D/g, "").slice(0, 10);
+    if (!name || !address) {
+      toast.error("Name and address are required.");
+      return;
+    }
+    if (phone.length !== 10) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+    if (managerPhone && managerPhone.length !== 10) {
+      toast.error("Manager phone must be a 10-digit number.");
+      return;
+    }
+    setAddBranchLoading(true);
+    try {
+      const result = await createPlatformBranch(org.organization.id, {
+        name,
+        address,
+        phone,
+        code: branchForm.code.trim() || null,
+        city: branchForm.city.trim() || null,
+        state: branchForm.state.trim() || null,
+        pincode: branchForm.pincode.trim() || null,
+        email: branchForm.email.trim() || null,
+        managerName: branchForm.managerName.trim() || null,
+        managerPhone: managerPhone || null,
+        isActive: branchForm.isActive,
+        raiseLimitIfNeeded: true,
+      });
+      if (result.limitRaisedTo != null) {
+        toast.success(`Branch created. Branch limit raised to ${result.limitRaisedTo}.`);
+      } else {
+        toast.success("Branch created.");
+      }
+      setAddBranchOpen(false);
+      resetBranchForm();
+      await load(true);
+    } catch (e: unknown) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : "Failed to create branch.";
+      toast.error(msg);
+    } finally {
+      setAddBranchLoading(false);
+    }
+  }
+
+  const staffDirectory = useMemo(
+    () => orgUsers.filter((u) => !WORKSHOP_USER_ROLES.has(u.role)),
+    [orgUsers]
+  );
+  const usersDirectory = useMemo(
+    () => orgUsers.filter((u) => WORKSHOP_USER_ROLES.has(u.role)),
+    [orgUsers]
+  );
+  const peopleRows = peopleTab === "staff" ? staffDirectory : usersDirectory;
+
   // ── Loading ───────────────────────────────────────────────────────────────
 
   if (loading) return (
@@ -466,7 +593,11 @@ export default function OrgDetailPage() {
 
       <Topbar
         title={org.organization.name}
-        description={`ID: ${org.organization.id}`}
+        description={
+          org.organization.slug
+            ? `/${org.organization.slug} · ${org.organization.id}`
+            : `ID: ${org.organization.id}`
+        }
         actions={
           <div style={{ display: "flex", gap: 6 }}>
             <Button variant="outline" size="sm" onClick={() => router.back()} style={{ minWidth: 80 }}>
@@ -493,6 +624,63 @@ export default function OrgDetailPage() {
               {refreshing ? "Refreshing…" : "Refresh"}
             </Button>
           </div>
+
+          {/* Row 0 – Organization profile (signup / provision details) */}
+          <OrgCard>
+            <OrgCardHeader
+              title="Organization profile"
+              subtitle="Details captured at signup / provisioning"
+              right={
+                <Badge variant={org.organization.isActive === false ? "muted" : "success"}>
+                  {org.organization.isActive === false ? "Inactive" : "Active"}
+                </Badge>
+              }
+            />
+            <OrgCardBody>
+              <dl className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "20px 32px" }}>
+                <InfoField label="Business name">{org.organization.name}</InfoField>
+                <InfoField label="Slug">
+                  {org.organization.slug ? (
+                    <span style={{ fontFamily: "monospace" }}>/{org.organization.slug}</span>
+                  ) : (
+                    "—"
+                  )}
+                </InfoField>
+                <InfoField label="Organization ID">
+                  <span style={{ fontFamily: "monospace", fontSize: 12 }}>{org.organization.id}</span>
+                </InfoField>
+                <InfoField label="Primary branch">
+                  {org.organization.primaryBranchName ?? "—"}
+                </InfoField>
+                <InfoField label="Owner name">{org.organization.ownerName ?? "—"}</InfoField>
+                <InfoField label="Owner email">
+                  {org.organization.ownerEmail ? (
+                    <a href={`mailto:${org.organization.ownerEmail}`} style={{ color: "#50B0A0", textDecoration: "none" }}>
+                      {org.organization.ownerEmail}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </InfoField>
+                <InfoField label="Owner phone">
+                  {org.organization.ownerPhone ? (
+                    <a href={`tel:${org.organization.ownerPhone}`} style={{ color: "#50B0A0", textDecoration: "none" }}>
+                      {org.organization.ownerPhone}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </InfoField>
+                <InfoField label="Signup source">{org.organization.signupSource ?? "—"}</InfoField>
+                <InfoField label="Referral code">{org.organization.referralCode ?? "—"}</InfoField>
+                <InfoField label="Created">{formatDateTime(org.organization.createdAt)}</InfoField>
+                <InfoField label="Activated">{formatDateTime(org.organization.activatedAt)}</InfoField>
+                <InfoField label="Account status">
+                  {org.organization.isActive === false ? "Suspended / inactive" : "Active"}
+                </InfoField>
+              </dl>
+            </OrgCardBody>
+          </OrgCard>
 
           {/* Row 1 – Subscription overview */}
           <OrgCard>
@@ -709,29 +897,93 @@ export default function OrgDetailPage() {
             </OrgCard>
           </div>
 
-          {/* Row 4 – Users (org-scoped) */}
+          {/* Row 4 – Staff / Users (matches workshop directory split) */}
           <OrgCard>
             <OrgCardHeader
-              title="Users"
-              subtitle={orgDirectoryLoading ? "Loading…" : `${orgUsers.length} user${orgUsers.length !== 1 ? "s" : ""} in this organization`}
+              title="Users & Staff"
+              subtitle={
+                orgDirectoryLoading
+                  ? "Loading…"
+                  : `${staffDirectory.length} staff · ${usersDirectory.length} user${usersDirectory.length !== 1 ? "s" : ""}`
+              }
             />
             <OrgCardBody>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                {(
+                  [
+                    { id: "staff" as const, label: "Staff", count: staffDirectory.length, icon: UserCog },
+                    { id: "users" as const, label: "Users", count: usersDirectory.length, icon: Users },
+                  ] as const
+                ).map((tab) => {
+                  const active = peopleTab === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setPeopleTab(tab.id)}
+                      style={{
+                        height: 34,
+                        padding: "0 14px",
+                        borderRadius: 8,
+                        border: active ? "1px solid #50B0A0" : "1px solid var(--border)",
+                        background: active ? "#EFF8F6" : "var(--card)",
+                        color: active ? "#2F7D70" : "var(--foreground)",
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 500,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <Icon style={{ width: 14, height: 14 }} />
+                      {tab.label}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "1px 7px",
+                          borderRadius: 999,
+                          background: active ? "#D5EFEA" : "var(--secondary)",
+                          color: active ? "#2F7D70" : "var(--muted-foreground)",
+                        }}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {orgDirectoryLoading ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[0, 1, 2].map((i) => <Skel key={i} h={40} />)}
                 </div>
-              ) : orgUsers.length === 0 ? (
-                <EmptyState icon={Users} message="No users in this organization." />
+              ) : peopleRows.length === 0 ? (
+                <EmptyState
+                  icon={peopleTab === "staff" ? UserCog : Users}
+                  message={
+                    peopleTab === "staff"
+                      ? "No staff in this organization (mechanics, admins, etc.)."
+                      : "No office users in this organization (branch managers, supervisors, receptionists)."
+                  }
+                />
               ) : (
-                <InlineTable heads={[{ label: "Name" }, { label: "Branch" }, { label: "Role" }, { label: "Status" }, { label: "Last login" }]}>
-                  {orgUsers.map((u, idx) => (
+                <InlineTable heads={[{ label: "Name" }, { label: "Contact" }, { label: "Branch" }, { label: "Role" }, { label: "Status" }, { label: "Last login" }]}>
+                  {peopleRows.map((u, idx) => (
                     <InlineRow key={u.id} idx={idx}>
                       <InlineTd>
                         <div style={{ fontWeight: 600 }}>{u.name}</div>
                         <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{u.email}</div>
                       </InlineTd>
+                      <InlineTd muted>{u.phone ?? "—"}</InlineTd>
                       <InlineTd muted>{u.branchName ?? "—"}</InlineTd>
-                      <InlineTd muted>{u.role}</InlineTd>
+                      <InlineTd>
+                        <Badge variant={peopleTab === "users" ? "info" : u.role === "SUPER_ADMIN" ? "default" : "success"}>
+                          {roleDisplayLabel(u.role)}
+                        </Badge>
+                      </InlineTd>
                       <InlineTd>
                         <Badge variant={u.isActive ? "success" : "muted"}>{u.isActive ? "Active" : "Inactive"}</Badge>
                       </InlineTd>
@@ -748,6 +1000,20 @@ export default function OrgDetailPage() {
             <OrgCardHeader
               title="Branches"
               subtitle={orgDirectoryLoading ? "Loading…" : `${orgBranches.length} branch${orgBranches.length !== 1 ? "es" : ""} in this organization`}
+              right={
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    resetBranchForm();
+                    setAddBranchOpen(true);
+                  }}
+                  className="shrink-0 whitespace-nowrap"
+                  style={{ paddingLeft: 14, paddingRight: 14, gap: 6 }}
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" />
+                  Add branch
+                </Button>
+              }
             />
             <OrgCardBody>
               {orgDirectoryLoading ? (
@@ -755,7 +1021,7 @@ export default function OrgDetailPage() {
                   {[0, 1].map((i) => <Skel key={i} h={110} />)}
                 </div>
               ) : orgBranches.length === 0 ? (
-                <EmptyState icon={Building2} message="No branches in this organization." />
+                <EmptyState icon={Building2} message="No branches yet. Click Add branch to create one." />
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
                   {orgBranches.map((b) => {
@@ -786,6 +1052,9 @@ export default function OrgDetailPage() {
                           <MapPin style={{ width: 13, height: 13, flexShrink: 0 }} />
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location}</span>
                         </div>
+                        {b.phone && (
+                          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Phone: {b.phone}</div>
+                        )}
                         {(b.managerName || b.managerPhone) && (
                           <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
                             Manager: {[b.managerName, b.managerPhone].filter(Boolean).join(" · ")}
@@ -833,68 +1102,7 @@ export default function OrgDetailPage() {
               ) : orgLogs.length === 0 ? (
                 <EmptyState icon={ClipboardList} message="No platform audit events for this organization." />
               ) : (
-                <div style={{ overflowX: "auto", margin: "0 -4px" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                        <th style={{ width: 28, padding: "8px 6px", textAlign: "left" }} />
-                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Event</th>
-                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Actor</th>
-                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orgLogs.map((r, idx) => (
-                        <React.Fragment key={r.id}>
-                          <tr
-                            onClick={() => setExpandedLogId((prev) => (prev === r.id ? null : r.id))}
-                            style={{
-                              borderTop: idx === 0 ? "none" : "1px solid #f1f5f9",
-                              cursor: "pointer",
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248,250,252,0.9)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
-                          >
-                            <td style={{ padding: "10px 6px", verticalAlign: "middle" }}>
-                              <span style={{ color: "var(--muted-foreground)", display: "flex" }}>
-                                {expandedLogId === r.id
-                                  ? <ChevronDown style={{ width: 14, height: 14 }} />
-                                  : <ChevronRight style={{ width: 14, height: 14 }} />}
-                              </span>
-                            </td>
-                            <td style={{ padding: "10px 10px" }}>
-                              <code style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 600, color: "#2F7D70", background: "#EFF8F6", padding: "2px 6px", borderRadius: 4 }}>
-                                {r.action}
-                              </code>
-                            </td>
-                            <td style={{ padding: "10px 10px", color: "var(--muted-foreground)" }}>{r.actor}</td>
-                            <td style={{ padding: "10px 10px", color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{formatDateTime(r.createdAt)}</td>
-                          </tr>
-                          {expandedLogId === r.id && (
-                            <tr style={{ background: "var(--page-bg)" }}>
-                              <td colSpan={4} style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                                  <div>
-                                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", margin: "0 0 4px", textTransform: "uppercase" }}>Before</p>
-                                    <pre style={{ margin: 0, padding: "8px 10px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, overflow: "auto", maxHeight: 140, color: "var(--foreground)" }}>
-                                      {r.before != null ? JSON.stringify(r.before, null, 2) : "—"}
-                                    </pre>
-                                  </div>
-                                  <div>
-                                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", margin: "0 0 4px", textTransform: "uppercase" }}>After</p>
-                                    <pre style={{ margin: 0, padding: "8px 10px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, overflow: "auto", maxHeight: 140, color: "var(--foreground)" }}>
-                                      {r.after != null ? JSON.stringify(r.after, null, 2) : "—"}
-                                    </pre>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <PlatformAuditList rows={orgLogs} />
               )}
             </OrgCardBody>
           </OrgCard>
@@ -1018,6 +1226,154 @@ export default function OrgDetailPage() {
               <Button variant="outline" onClick={() => setRestoreOpen(false)} disabled={lifecycleLoading} style={{ minWidth: 100 }}>Cancel</Button>
               <Button onClick={handleRestore} disabled={lifecycleLoading} className="min-w-35">
                 {lifecycleLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Restoring…</> : "Restore"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Branch Modal */}
+      {addBranchOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "12px" }}>
+          <div style={{ background: "var(--card)", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ padding: "24px 24px 0" }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--foreground)" }}>Add branch</h2>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                Create a workshop location for{" "}
+                <strong style={{ color: "var(--foreground)" }}>{org.organization.name}</strong>.
+                {branchLimit != null && org.usage.branchesUsed >= branchLimit && (
+                  <> If the plan is at its branch cap ({org.usage.branchesUsed}/{branchLimit}), the limit will be raised automatically.</>
+                )}
+              </p>
+            </div>
+            <div style={{ padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px)", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 12 }}>
+                <FormField label="Branch name *">
+                  <Input
+                    placeholder="e.g. Kahalgaon"
+                    value={branchForm.name}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, name: e.target.value }))}
+                    disabled={addBranchLoading}
+                    autoFocus
+                  />
+                </FormField>
+                <FormField label="Code">
+                  <Input
+                    placeholder="e.g. KHL"
+                    value={branchForm.code}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, code: e.target.value }))}
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+              </div>
+              <FormField label="Address *">
+                <Input
+                  placeholder="Street / area"
+                  value={branchForm.address}
+                  onChange={(e) => setBranchForm((f) => ({ ...f, address: e.target.value }))}
+                  disabled={addBranchLoading}
+                />
+              </FormField>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px", gap: 12 }}>
+                <FormField label="City">
+                  <Input
+                    value={branchForm.city}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, city: e.target.value }))}
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+                <FormField label="State">
+                  <Input
+                    value={branchForm.state}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, state: e.target.value }))}
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+                <FormField label="PIN">
+                  <Input
+                    value={branchForm.pincode}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, pincode: e.target.value }))}
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <FormField label="Phone *">
+                  <Input
+                    inputMode="numeric"
+                    placeholder="10-digit mobile"
+                    value={branchForm.phone}
+                    onChange={(e) =>
+                      setBranchForm((f) => ({
+                        ...f,
+                        phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                      }))
+                    }
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+                <FormField label="Email">
+                  <Input
+                    type="email"
+                    value={branchForm.email}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, email: e.target.value }))}
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <FormField label="Manager name">
+                  <Input
+                    value={branchForm.managerName}
+                    onChange={(e) => setBranchForm((f) => ({ ...f, managerName: e.target.value }))}
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+                <FormField label="Manager phone">
+                  <Input
+                    inputMode="numeric"
+                    placeholder="10-digit"
+                    value={branchForm.managerPhone}
+                    onChange={(e) =>
+                      setBranchForm((f) => ({
+                        ...f,
+                        managerPhone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                      }))
+                    }
+                    disabled={addBranchLoading}
+                  />
+                </FormField>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--foreground)", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={branchForm.isActive}
+                  onChange={(e) => setBranchForm((f) => ({ ...f, isActive: e.target.checked }))}
+                  disabled={addBranchLoading}
+                />
+                Site is active / accepting work
+              </label>
+            </div>
+            <div style={{ padding: "12px 24px 20px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)" }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAddBranchOpen(false);
+                  resetBranchForm();
+                }}
+                disabled={addBranchLoading}
+                style={{ minWidth: 100 }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => void handleAddBranch()} disabled={addBranchLoading} className="min-w-35">
+                {addBranchLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Creating…
+                  </>
+                ) : (
+                  "Create branch"
+                )}
               </Button>
             </div>
           </div>

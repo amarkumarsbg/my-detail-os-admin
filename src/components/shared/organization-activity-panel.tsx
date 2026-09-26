@@ -98,6 +98,8 @@ export type OrganizationActivityPanelProps = {
   showOrganizationColumn?: boolean;
   pageSize?: number;
   embedded?: boolean;
+  /** Stretch the list to fill remaining viewport height (full audit page). */
+  fillHeight?: boolean;
 };
 
 export function OrganizationActivityPanel({
@@ -107,6 +109,7 @@ export function OrganizationActivityPanel({
   showOrganizationColumn,
   pageSize = 25,
   embedded = false,
+  fillHeight = false,
 }: OrganizationActivityPanelProps) {
   const [selectedOrgId, setSelectedOrgId] = useState(fixedOrgId ?? "");
   const [search, setSearch] = useState("");
@@ -171,13 +174,22 @@ export function OrganizationActivityPanel({
   const showOrgCol = showOrganizationColumn ?? !fixedOrgId;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: embedded ? 12 : 0, minHeight: 0 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: embedded ? 12 : 0,
+        minHeight: 0,
+        ...(fillHeight ? { flex: 1, height: "100%" } : {}),
+      }}
+    >
       <div
         style={{
           display: "flex",
           flexWrap: "wrap",
           alignItems: "center",
           gap: 8,
+          flexShrink: 0,
           ...(embedded
             ? {}
             : {
@@ -245,7 +257,14 @@ export function OrganizationActivityPanel({
         </button>
       </div>
 
-      <div style={{ ...(embedded ? {} : { padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)" }) }}>
+      <div
+        style={{
+          ...(embedded ? {} : { padding: "clamp(10px, 2vw, 16px) clamp(12px, 3vw, 24px)" }),
+          ...(fillHeight
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }
+            : {}),
+        }}
+      >
         {!selectedOrgId ? (
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <EmptyState icon={Activity} title="Select an organization" description="Choose an organization to view its workshop activity log." />
@@ -265,51 +284,91 @@ export function OrganizationActivityPanel({
             />
           </div>
         ) : (
-          <>
-            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-              {rows.map((r, idx) => (
-                <div
-                  key={r.id}
-                  style={{
-                    padding: "14px 16px",
-                    borderTop: idx === 0 ? "none" : "1px solid var(--border)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                  }}
-                >
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.35 }}>
-                        {describeActivity(r)}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              ...(fillHeight ? { flex: 1 } : {}),
+            }}
+          >
+            <div
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                ...(fillHeight
+                  ? { flex: 1 }
+                  : { maxHeight: embedded ? "min(420px, 50vh)" : "min(520px, 55vh)" }),
+              }}
+            >
+              <div
+                style={{
+                  overflowY: "auto",
+                  WebkitOverflowScrolling: "touch",
+                  flex: 1,
+                  minHeight: 0,
+                }}
+              >
+                {rows.map((r, idx) => (
+                  <div
+                    key={r.id}
+                    style={{
+                      padding: "14px 16px",
+                      borderTop: idx === 0 ? "none" : "1px solid var(--border)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.35 }}>
+                          {describeActivity(r)}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", marginTop: 6, fontSize: 12, color: "var(--muted-foreground)" }}>
+                          <span>{r.userName || r.userId || "Unknown actor"}</span>
+                          {showOrgCol && (
+                            <Link href={`/organizations/${r.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>
+                              {r.organizationName}
+                            </Link>
+                          )}
+                          {r.entityType && (
+                            <span>
+                              {r.entityType}
+                              {r.entityLabel || r.entityId ? ` · ${r.entityLabel || r.entityId}` : ""}
+                            </span>
+                          )}
+                          <span>{formatDateTime(r.createdAt)}</span>
+                        </div>
                       </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", marginTop: 6, fontSize: 12, color: "var(--muted-foreground)" }}>
-                        <span>{r.userName || r.userId || "Unknown actor"}</span>
-                        {showOrgCol && (
-                          <Link href={`/organizations/${r.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>
-                            {r.organizationName}
-                          </Link>
-                        )}
-                        {r.entityType && (
-                          <span>
-                            {r.entityType}
-                            {r.entityLabel || r.entityId ? ` · ${r.entityLabel || r.entityId}` : ""}
-                          </span>
-                        )}
-                        <span>{formatDateTime(r.createdAt)}</span>
-                      </div>
+                      <Badge variant={actionVariant(r.action)}>{actionLabel(r.action)}</Badge>
                     </div>
-                    <Badge variant={actionVariant(r.action)}>{actionLabel(r.action)}</Badge>
+                    {r.action && (
+                      <code style={{ fontSize: 11, fontFamily: "monospace", color: "#2F7D70", background: "#EFF8F6", padding: "2px 6px", borderRadius: 4, width: "fit-content" }}>
+                        {r.action}
+                      </code>
+                    )}
                   </div>
-                  {r.action && (
-                    <code style={{ fontSize: 11, fontFamily: "monospace", color: "#2F7D70", background: "#EFF8F6", padding: "2px 6px", borderRadius: 4, width: "fit-content" }}>
-                      {r.action}
-                    </code>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 12, fontSize: 12, color: "var(--muted-foreground)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginTop: 12,
+                fontSize: 12,
+                color: "var(--muted-foreground)",
+                flexShrink: 0,
+              }}
+            >
               <span>
                 Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
                 {orgName ? ` · ${orgName}` : ""}
@@ -334,7 +393,7 @@ export function OrganizationActivityPanel({
                 </button>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

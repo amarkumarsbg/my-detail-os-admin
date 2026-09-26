@@ -309,6 +309,29 @@ export async function listPlatformBranches(params?: {
   return apiClient.get(`/api/platform/branches${qs}`);
 }
 
+export type CreatePlatformBranchInput = {
+  name: string;
+  address: string;
+  phone: string;
+  code?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  email?: string | null;
+  managerName?: string | null;
+  managerPhone?: string | null;
+  isActive?: boolean;
+  /** Default true on the API — raises plan branch cap when at limit. */
+  raiseLimitIfNeeded?: boolean;
+};
+
+export async function createPlatformBranch(
+  orgId: string,
+  body: CreatePlatformBranchInput
+): Promise<{ branch: PlatformBranchRow; limitRaisedTo: number | null }> {
+  return apiClient.post(`/api/platform/organizations/${encodeURIComponent(orgId)}/branches`, body);
+}
+
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
 /** Supported billing term lengths in months. */
