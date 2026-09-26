@@ -484,6 +484,33 @@ export async function sendPlatformMessagingTest(input: {
   return apiClient.post("/api/platform/messaging/test", input);
 }
 
+// ─── Website contact messages ─────────────────────────────────────────────────
+
+export interface PlatformContactMessage {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  businessName: string | null;
+  subject: string | null;
+  message: string;
+  source: string | null;
+  createdAt: string;
+  ip: string | null;
+  userAgent: string | null;
+}
+
+export async function listPlatformContacts(params?: {
+  limit?: number;
+  search?: string;
+}): Promise<{ contacts: PlatformContactMessage[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.search) qs.set("search", params.search);
+  const q = qs.toString();
+  return apiClient.get(`/api/platform/contacts${q ? `?${q}` : ""}`);
+}
+
 // ─── Suspend / Restore ────────────────────────────────────────────────────────
 
 export async function suspendOrg(orgId: string, reason: string): Promise<{ suspended: boolean; reason: string }> {
