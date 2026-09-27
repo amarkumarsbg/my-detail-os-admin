@@ -79,8 +79,13 @@ const CARD_STYLE: React.CSSProperties = {
   overflow: "hidden",
 };
 
-/** Matches workshop Users tab (office roles). Everyone else is Staff. */
+/**
+ * Billable / login seats shown under Users.
+ * SUPER_ADMIN always counts as a user. Mechanics stay under Staff.
+ */
 const WORKSHOP_USER_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
   "BRANCH_MANAGER",
   "MANAGER",
   "SUPERVISOR",
@@ -991,8 +996,8 @@ export default function OrgDetailPage() {
                   icon={peopleTab === "staff" ? UserCog : Users}
                   message={
                     peopleTab === "staff"
-                      ? "No staff in this organization (mechanics, admins, etc.)."
-                      : "No office users in this organization (branch managers, supervisors, receptionists)."
+                      ? "No staff in this organization (mechanics and other non-seat roles)."
+                      : "No users in this organization (Super Admin, admins, managers, receptionists)."
                   }
                 />
               ) : (
