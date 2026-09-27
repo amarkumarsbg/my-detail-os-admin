@@ -9,8 +9,13 @@ export interface ListOrganizationsResponse {
   organizations: OrgListItem[];
 }
 
-export async function listOrganizations(): Promise<OrgListItem[]> {
-  const res = await apiClient.get<ListOrganizationsResponse>("/api/platform/organizations");
+export async function listOrganizations(params?: {
+  subscriptionStatus?: "ACTIVE" | "PAST_DUE" | "EXPIRED" | "CANCELLED" | "TRIAL";
+}): Promise<OrgListItem[]> {
+  const q = new URLSearchParams();
+  if (params?.subscriptionStatus) q.set("subscriptionStatus", params.subscriptionStatus);
+  const qs = q.toString() ? `?${q}` : "";
+  const res = await apiClient.get<ListOrganizationsResponse>(`/api/platform/organizations${qs}`);
   return res.organizations ?? [];
 }
 

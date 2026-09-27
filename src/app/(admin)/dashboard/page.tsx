@@ -9,6 +9,7 @@ import {
   Tag,
   XCircle,
   Loader2,
+  Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -102,6 +103,22 @@ export default function DashboardPage() {
     }).length;
   }, [orgs]);
 
+  const activeFreeTrials = useMemo(() => {
+    return orgs.filter((o) => {
+      if (o.subscription.status !== "TRIAL") return false;
+      const days = o.subscription.daysRemaining;
+      return days == null || days >= 0;
+    }).length;
+  }, [orgs]);
+
+  const trialsEndingSoon = useMemo(() => {
+    return orgs.filter((o) => {
+      if (o.subscription.status !== "TRIAL") return false;
+      const days = o.subscription.daysRemaining;
+      return days != null && days >= 0 && days <= 7;
+    }).length;
+  }, [orgs]);
+
   const recentlySubscribed = useMemo(() => {
     return [...orgs]
       .sort((a, b) => subscribedAt(b) - subscribedAt(a))
@@ -111,6 +128,7 @@ export default function DashboardPage() {
   const statusBreakdown = useMemo(() => {
     const breakdown = dash?.subscriptionStatusBreakdown ?? {};
     const entries = [
+      { key: "TRIAL", label: "Trial", color: "#d97706" },
       { key: "ACTIVE", label: "Active", color: "#16a34a" },
       { key: "PAST_DUE", label: "Past Due", color: "#50B0A0" },
       { key: "EXPIRED", label: "Expired", color: "#dc2626" },
@@ -152,6 +170,12 @@ export default function DashboardPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px", marginBottom: "20px" }}>
           <StatCard label="Total Orgs" value={loading ? "—" : dash?.organizations.total ?? 0} icon={Building2} iconBg="#EFF8F6" iconColor="#50B0A0" loading={loading} />
           <StatCard label="Active Orgs" value={loading ? "—" : dash?.organizations.active ?? 0} sub="isActive" icon={CheckCircle2} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
+          <Link href="/free-trials" style={{ textDecoration: "none", color: "inherit" }}>
+            <StatCard label="Active Free Trials" value={loading ? "—" : activeFreeTrials} sub="status TRIAL" icon={Timer} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
+          </Link>
+          <Link href="/free-trials?filter=ending_soon" style={{ textDecoration: "none", color: "inherit" }}>
+            <StatCard label="Trials Ending Soon" value={loading ? "—" : trialsEndingSoon} sub="≤ 7 days" icon={AlertTriangle} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
+          </Link>
           <StatCard label="Expiring Soon" value={loading ? "—" : expiringSoon} sub="within 30 days" icon={AlertTriangle} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
           <Link href="/payments?status=review" style={{ textDecoration: "none", color: "inherit" }}>
             <StatCard label="Pending Payments" value={loading ? "—" : dash?.pendingPayments ?? 0} sub="awaiting review" icon={CreditCard} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
