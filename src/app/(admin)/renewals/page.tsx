@@ -2,14 +2,18 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar, FilterSelect } from "@/components/shared/filter-bar";
+import { ExportButtons } from "@/components/shared/export-buttons";
 import { AdminTable, THead, Th, TBody, Tr, Td, TableFooter, AdminTableSkeleton } from "@/components/shared/admin-table";
 import { PaymentStatusBadge } from "@/components/shared/status-badges";
 import { listPlatformRenewals, type PlatformRenewalRow } from "@/api/platform";
 import { formatCurrency, formatDate, termLabel } from "@/lib/utils";
+import { csvDateStamp, downloadCsv } from "@/lib/download-csv";
+import { downloadPdfTable } from "@/lib/download-pdf";
 
 export default function RenewalsPage() {
   const [rows, setRows] = useState<PlatformRenewalRow[]>([]);
@@ -44,7 +48,92 @@ export default function RenewalsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Topbar title="Renewals" description={`${rows.length} renewal records`} />
-      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search org or bill…" onRefresh={() => load(true)} refreshing={refreshing}>
+      <FilterBar
+        searchValue={search}
+        onSearch={setSearch}
+        searchPlaceholder="Search org or bill…"
+        onRefresh={() => load(true)}
+        refreshing={refreshing}
+        rightSlot={
+          <ExportButtons
+            disabled={loading || filtered.length === 0}
+            onCsv={() => {
+              if (filtered.length === 0) {
+                toast.error("No rows to download.");
+                return;
+              }
+              const headers = [
+                "Organization",
+                "Plan",
+                "Bill Number",
+                "Term",
+                "Total Amount",
+                "Currency",
+                "Payment Status",
+                "Previous Expiry",
+                "New Expiry",
+                "Renewal Date",
+                "Organization ID",
+              ];
+              const rows = filtered.map((r) => [
+                r.organizationName,
+                r.planName,
+                r.billNumber,
+                termLabel(r.termMonths),
+                r.totalAmount ?? "",
+                r.currency ?? "",
+                r.paymentStatus ?? "",
+                r.previousExpiry ?? "",
+                r.newExpiry ?? "",
+                r.renewalDate ?? "",
+                r.organizationId,
+              ]);
+              downloadCsv(`renewals-${csvDateStamp()}.csv`, headers, rows);
+              toast.success(`Downloaded CSV (${filtered.length}).`);
+            }}
+            onPdf={() => {
+              if (filtered.length === 0) {
+                toast.error("No rows to download.");
+                return;
+              }
+              const headers = [
+                "Organization",
+                "Plan",
+                "Bill Number",
+                "Term",
+                "Total Amount",
+                "Currency",
+                "Payment Status",
+                "Previous Expiry",
+                "New Expiry",
+                "Renewal Date",
+                "Organization ID",
+              ];
+              const rows = filtered.map((r) => [
+                r.organizationName,
+                r.planName,
+                r.billNumber,
+                termLabel(r.termMonths),
+                r.totalAmount ?? "",
+                r.currency ?? "",
+                r.paymentStatus ?? "",
+                r.previousExpiry ?? "",
+                r.newExpiry ?? "",
+                r.renewalDate ?? "",
+                r.organizationId,
+              ]);
+              downloadPdfTable({
+                filename: `renewals-${csvDateStamp()}.pdf`,
+                title: "Renewals",
+                subtitle: `${filtered.length} row(s) · ${csvDateStamp()}`,
+                headers,
+                rows,
+              });
+              toast.success(`Downloaded PDF (${filtered.length}).`);
+            }}
+          />
+        }
+      >
         <FilterSelect value={filterPlan} onChange={setFilterPlan} options={[
           { value: "all", label: "All Plans" },
           { value: "STARTER", label: "Starter" },

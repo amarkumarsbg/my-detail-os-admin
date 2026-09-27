@@ -210,6 +210,9 @@ export interface PatchSubscriptionInput {
   contactUsUrl?: string | null;
   contactPhone?: string | null;
   upgradeUrl?: string | null;
+  termMonths?: number;
+  startsAt?: string | null;
+  expiresAt?: string | null;
   notes?: string | null;
 }
 

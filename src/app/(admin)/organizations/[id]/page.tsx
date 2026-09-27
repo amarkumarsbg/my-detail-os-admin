@@ -17,6 +17,8 @@ import {
   MapPin,
   ClipboardList,
   Plus,
+  Download,
+  FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -62,6 +64,10 @@ import {
   termLabel,
 } from "@/lib/utils";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
+import {
+  downloadOrganizationDataZip,
+  downloadOrganizationSummaryPdf,
+} from "@/lib/download-org-data";
 import type {
   OrgDetail,
   PlanCode,
@@ -285,6 +291,7 @@ export default function OrgDetailPage() {
   const [suspendReason, setSuspendReason] = useState("Admin suspension");
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
+  const [exportingZip, setExportingZip] = useState(false);
 
   const [addBranchOpen, setAddBranchOpen] = useState(false);
   const [addBranchLoading, setAddBranchLoading] = useState(false);
@@ -352,6 +359,33 @@ export default function OrgDetailPage() {
   }
 
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleDownloadZip() {
+    if (!org || exportingZip) return;
+    setExportingZip(true);
+    try {
+      const result = await downloadOrganizationDataZip(org, {
+        users: orgUsers,
+        branches: orgBranches,
+        audit: orgLogs,
+      });
+      toast.success(`Downloaded ${result.filename}`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to download organization data");
+    } finally {
+      setExportingZip(false);
+    }
+  }
+
+  function handleDownloadPdf() {
+    if (!org) return;
+    try {
+      downloadOrganizationSummaryPdf(org);
+      toast.success("Downloaded organization summary PDF.");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to download PDF");
+    }
+  }
 
   useEffect(() => {
     getPlatformPlans()
@@ -616,13 +650,20 @@ export default function OrgDetailPage() {
             : `ID: ${org.organization.id}`
         }
         actions={
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <Button variant="outline" size="sm" onClick={() => router.back()} style={{ minWidth: 80 }}>
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
             <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing} style={{ minWidth: 90 }}>
               <RefreshCw className={`h-4 w-4${refreshing ? " animate-spin" : ""}`} />
               {refreshing ? "Refreshing…" : "Refresh"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadPdf} style={{ minWidth: 90 }}>
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadZip} disabled={exportingZip} style={{ minWidth: 110 }}>
+              {exportingZip ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exportingZip ? "Preparing…" : "Download ZIP"}
             </Button>
           </div>
         }
@@ -772,6 +813,45 @@ export default function OrgDetailPage() {
               <OrgCardHeader title="Quick Actions" subtitle="Perform administrative actions on this organization." />
               <OrgCardBody>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={handleDownloadZip}
+                    disabled={exportingZip || lifecycleLoading}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(80,176,160,0.12)", border: "1px solid var(--border)", borderRadius: 10, cursor: exportingZip ? "not-allowed" : "pointer", opacity: exportingZip ? 0.7 : 1, textAlign: "left" }}
+                  >
+                    <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(80,176,160,0.2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <FileDown style={{ width: 16, height: 16, color: "#50B0A0" }} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                        {exportingZip ? "Preparing download…" : "Download All Data (ZIP)"}
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                        Org, subscription, payments, bills, users, branches, audit & activity CSVs
+                      </span>
+                    </span>
+                    {exportingZip && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdf}
+                    disabled={lifecycleLoading}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(99,120,150,0.1)", border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer", textAlign: "left" }}
+                  >
+                    <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(99,120,150,0.18)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <FileText style={{ width: 16, height: 16, color: "#475569" }} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                        Download Summary PDF
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                        One-page organization & subscription overview
+                      </span>
+                    </span>
+                  </button>
+
                   {org.subscription.status === "TRIAL" && (
                   <button
                     type="button"

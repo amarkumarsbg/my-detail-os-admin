@@ -16,6 +16,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar, FilterSelect } from "@/components/shared/filter-bar";
+import { ExportButtons } from "@/components/shared/export-buttons";
 import {
   AdminTable,
   THead,
@@ -29,9 +30,23 @@ import {
 import { PlanBadge, SubscriptionStatusBadge } from "@/components/shared/status-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { convertTrial, listOrganizations } from "@/api/organizations";
+import {
+  convertTrial,
+  listOrganizations,
+  patchOrganizationSubscription,
+} from "@/api/organizations";
 import { formatDate, daysRemainingLabel, termLabel } from "@/lib/utils";
+import { csvDateStamp, downloadCsv } from "@/lib/download-csv";
+import { downloadPdfTable } from "@/lib/download-pdf";
 import type { OrgListItem, PlanCode } from "@/types";
+
+function addDaysIso(fromIso: string | null | undefined, days: number): string {
+  const base = fromIso ? new Date(fromIso) : new Date();
+  const now = new Date();
+  const start = base.getTime() > now.getTime() ? base : now;
+  const next = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+  return next.toISOString();
+}
 
 type TabId = "active" | "expired";
 type QuickFilter = "all" | "ending_soon" | "expiring_today" | "expired";
@@ -111,6 +126,10 @@ function FreeTrialsPageInner() {
   const [convertPlan, setConvertPlan] = useState<PlanCode>("STARTER");
   const [convertTerm, setConvertTerm] = useState<1 | 3 | 12 | 24 | 36 | 60>(12);
   const [converting, setConverting] = useState(false);
+
+  const [extendTarget, setExtendTarget] = useState<OrgListItem | null>(null);
+  const [extendDays, setExtendDays] = useState("7");
+  const [extending, setExtending] = useState(false);
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
@@ -194,6 +213,72 @@ function FreeTrialsPageInner() {
     setConvertTerm(12);
   }
 
+  function openExtend(o: OrgListItem) {
+    setExtendTarget(o);
+    setExtendDays("7");
+  }
+
+  function exportRows() {
+    return {
+      headers: [
+        "Organization",
+        "Slug",
+        "Owner",
+        "Owner Email",
+        "Plan",
+        "Trial Started",
+        "Trial Ends",
+        "Days Remaining",
+        "Branches Used",
+        "Users Used",
+        "Status",
+        "Trial State",
+        "Organization ID",
+      ],
+      rows: filtered.map((o) => [
+        o.organization.name,
+        o.organization.slug ?? "",
+        o.organization.ownerName ?? "",
+        o.organization.ownerEmail ?? "",
+        o.subscription.planCode,
+        o.subscription.startsAt ?? "",
+        o.subscription.expiresAt ?? "",
+        o.subscription.daysRemaining ?? "",
+        o.usage.branchesUsed,
+        o.usage.usersUsed,
+        o.subscription.status,
+        trialVisualStatus(o),
+        o.organization.id,
+      ]),
+    };
+  }
+
+  function downloadFilteredCsv() {
+    if (filtered.length === 0) {
+      toast.error("No rows to download.");
+      return;
+    }
+    const { headers, rows } = exportRows();
+    downloadCsv(`free-trials-${tab}-${csvDateStamp()}.csv`, headers, rows);
+    toast.success(`Downloaded CSV (${filtered.length} row${filtered.length === 1 ? "" : "s"}).`);
+  }
+
+  function downloadFilteredPdf() {
+    if (filtered.length === 0) {
+      toast.error("No rows to download.");
+      return;
+    }
+    const { headers, rows } = exportRows();
+    downloadPdfTable({
+      filename: `free-trials-${tab}-${csvDateStamp()}.pdf`,
+      title: "Free Trials",
+      subtitle: `${tab === "active" ? "Active" : "Expired"} trials · ${filtered.length} row(s) · ${csvDateStamp()}`,
+      headers,
+      rows,
+    });
+    toast.success(`Downloaded PDF (${filtered.length} row${filtered.length === 1 ? "" : "s"}).`);
+  }
+
   async function handleConvert() {
     if (!convertTarget) return;
     setConverting(true);
@@ -214,7 +299,32 @@ function FreeTrialsPageInner() {
     }
   }
 
-  const expiredPreviewDays = convertTerm; // months shown via termLabel
+  async function handleExtend() {
+    if (!extendTarget) return;
+    const days = Number.parseInt(extendDays, 10);
+    if (!Number.isFinite(days) || days < 1 || days > 90) {
+      toast.error("Enter extend days between 1 and 90.");
+      return;
+    }
+    setExtending(true);
+    try {
+      const nextExpiry = addDaysIso(extendTarget.subscription.expiresAt, days);
+      await patchOrganizationSubscription(extendTarget.organization.id, {
+        status: "TRIAL",
+        expiresAt: nextExpiry,
+        notes: `Trial extended by ${days} day(s) via Free Trials page`,
+      });
+      toast.success(
+        `${extendTarget.organization.name} trial extended by ${days} day${days === 1 ? "" : "s"}.`
+      );
+      setExtendTarget(null);
+      await load(true);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to extend trial");
+    } finally {
+      setExtending(false);
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -228,6 +338,13 @@ function FreeTrialsPageInner() {
         searchPlaceholder="Search org, slug, or owner email…"
         onRefresh={() => load(true)}
         refreshing={refreshing}
+        rightSlot={
+          <ExportButtons
+            disabled={loading || filtered.length === 0}
+            onCsv={downloadFilteredCsv}
+            onPdf={downloadFilteredPdf}
+          />
+        }
       >
         <FilterSelect
           value={filterPlan}
@@ -458,25 +575,40 @@ function FreeTrialsPageInner() {
                             >
                               Open
                             </Link>
-                            {isActiveTrial(o) && (
-                              <button
-                                type="button"
-                                onClick={() => openConvert(o)}
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: 500,
-                                  color: "#15803d",
-                                  padding: "4px 10px",
-                                  border: "1px solid #bbf7d0",
-                                  borderRadius: 5,
-                                  background: "#f0fdf4",
-                                  cursor: "pointer",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                Convert to Paid
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => openExtend(o)}
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: "#b45309",
+                                padding: "4px 10px",
+                                border: "1px solid #fcd34d",
+                                borderRadius: 5,
+                                background: "#fffbeb",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Extend Trial
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openConvert(o)}
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: "#15803d",
+                                padding: "4px 10px",
+                                border: "1px solid #bbf7d0",
+                                borderRadius: 5,
+                                background: "#f0fdf4",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Convert to Paid
+                            </button>
                           </div>
                         </Td>
                       </Tr>
@@ -590,25 +722,40 @@ function FreeTrialsPageInner() {
                       >
                         Open
                       </Link>
-                      {isActiveTrial(o) && (
-                        <button
-                          type="button"
-                          onClick={() => openConvert(o)}
-                          style={{
-                            flex: 1,
-                            fontSize: 13,
-                            fontWeight: 500,
-                            color: "#15803d",
-                            padding: "8px",
-                            border: "1px solid #bbf7d0",
-                            borderRadius: 8,
-                            background: "#f0fdf4",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Convert to Paid
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => openExtend(o)}
+                        style={{
+                          flex: 1,
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "#b45309",
+                          padding: "8px",
+                          border: "1px solid #fcd34d",
+                          borderRadius: 8,
+                          background: "#fffbeb",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Extend
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openConvert(o)}
+                        style={{
+                          flex: 1,
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "#15803d",
+                          padding: "8px",
+                          border: "1px solid #bbf7d0",
+                          borderRadius: 8,
+                          background: "#f0fdf4",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Convert
+                      </button>
                     </div>
                   </div>
                 );
@@ -617,6 +764,120 @@ function FreeTrialsPageInner() {
           </>
         )}
       </div>
+
+      {extendTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+            padding: 12,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--card)",
+              borderRadius: 16,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+              width: "100%",
+              maxWidth: 440,
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "24px 24px 0" }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Extend Trial</h2>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 13,
+                  color: "var(--muted-foreground)",
+                  lineHeight: 1.5,
+                }}
+              >
+                Extend free trial for{" "}
+                <strong style={{ color: "var(--foreground)" }}>
+                  {extendTarget.organization.name}
+                </strong>
+                . Current end:{" "}
+                <strong style={{ color: "var(--foreground)" }}>
+                  {formatDate(extendTarget.subscription.expiresAt)}
+                </strong>
+                .
+              </p>
+            </div>
+            <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: "var(--muted-foreground)",
+                    marginBottom: 6,
+                  }}
+                >
+                  Extra days (1–90)
+                </div>
+                <FilterSelect
+                  value={extendDays}
+                  onChange={setExtendDays}
+                  fullWidth
+                  options={[
+                    { value: "3", label: "3 days" },
+                    { value: "7", label: "7 days" },
+                    { value: "14", label: "14 days" },
+                    { value: "30", label: "30 days" },
+                  ]}
+                />
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted-foreground)",
+                  background: "var(--secondary)",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                }}
+              >
+                New trial end ≈{" "}
+                <strong style={{ color: "var(--foreground)" }}>
+                  {formatDate(
+                    addDaysIso(
+                      extendTarget.subscription.expiresAt,
+                      Number.parseInt(extendDays, 10) || 7
+                    )
+                  )}
+                </strong>
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "12px 24px 20px",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+                borderTop: "1px solid var(--border)",
+              }}
+            >
+              <Button variant="outline" onClick={() => setExtendTarget(null)} disabled={extending}>
+                Cancel
+              </Button>
+              <Button onClick={handleExtend} disabled={extending}>
+                {extending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Extending…
+                  </>
+                ) : (
+                  "Confirm Extend"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {convertTarget && (
         <div
@@ -731,7 +992,7 @@ function FreeTrialsPageInner() {
                 }}
               >
                 Result: <strong style={{ color: "var(--foreground)" }}>{convertPlan}</strong> ·{" "}
-                {termLabel(expiredPreviewDays)} · status ACTIVE · marked paid (manual). New expiry
+                {termLabel(convertTerm)} · status ACTIVE · marked paid (manual). New expiry
                 starts from conversion date.
               </div>
             </div>

@@ -2,14 +2,18 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
+import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar, FilterSelect } from "@/components/shared/filter-bar";
+import { ExportButtons } from "@/components/shared/export-buttons";
 import { AdminTable, THead, Th, TBody, Tr, Td, TableFooter, AdminTableSkeleton } from "@/components/shared/admin-table";
 import { SubscriptionStatusBadge, PaymentStatusBadge, PlanBadge } from "@/components/shared/status-badges";
 import { listOrganizations } from "@/api/organizations";
 import { formatDate, daysRemainingLabel } from "@/lib/utils";
+import { csvDateStamp, downloadCsv } from "@/lib/download-csv";
+import { downloadPdfTable } from "@/lib/download-pdf";
 import type { OrgListItem, PlanCode } from "@/types";
 
 type FS = "all" | "active" | "trial" | "expired" | "past_due" | "expiring" | "cancelled";
@@ -66,7 +70,96 @@ export default function OrganizationsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Topbar title="Organizations" description={`${orgs.length} customer organizations`} />
-      <FilterBar searchValue={search} onSearch={setSearch} searchPlaceholder="Search name, owner, email, phone, slug…" onRefresh={() => load(true)} refreshing={refreshing}>
+      <FilterBar
+        searchValue={search}
+        onSearch={setSearch}
+        searchPlaceholder="Search name, owner, email, phone, slug…"
+        onRefresh={() => load(true)}
+        refreshing={refreshing}
+        rightSlot={
+          <ExportButtons
+            disabled={loading || filtered.length === 0}
+            onCsv={() => {
+              if (filtered.length === 0) {
+                toast.error("No rows to download.");
+                return;
+              }
+              const headers = [
+                "Organization",
+                "Slug",
+                "Owner",
+                "Owner Email",
+                "Plan",
+                "Status",
+                "Expires At",
+                "Days Remaining",
+                "Payment Status",
+                "Branches",
+                "Users",
+                "Organization ID",
+              ];
+              const rows = filtered.map((o) => [
+                o.organization.name,
+                o.organization.slug ?? "",
+                o.organization.ownerName ?? "",
+                o.organization.ownerEmail ?? "",
+                o.subscription.planCode,
+                o.subscription.status,
+                o.subscription.expiresAt ?? "",
+                o.subscription.daysRemaining ?? "",
+                o.subscription.paymentStatus ?? "",
+                o.usage.branchesUsed,
+                o.usage.usersUsed,
+                o.organization.id,
+              ]);
+              downloadCsv(`organizations-${csvDateStamp()}.csv`, headers, rows);
+              toast.success(`Downloaded CSV (${filtered.length}).`);
+            }}
+            onPdf={() => {
+              if (filtered.length === 0) {
+                toast.error("No rows to download.");
+                return;
+              }
+              const headers = [
+                "Organization",
+                "Slug",
+                "Owner",
+                "Owner Email",
+                "Plan",
+                "Status",
+                "Expires At",
+                "Days Remaining",
+                "Payment Status",
+                "Branches",
+                "Users",
+                "Organization ID",
+              ];
+              const rows = filtered.map((o) => [
+                o.organization.name,
+                o.organization.slug ?? "",
+                o.organization.ownerName ?? "",
+                o.organization.ownerEmail ?? "",
+                o.subscription.planCode,
+                o.subscription.status,
+                o.subscription.expiresAt ?? "",
+                o.subscription.daysRemaining ?? "",
+                o.subscription.paymentStatus ?? "",
+                o.usage.branchesUsed,
+                o.usage.usersUsed,
+                o.organization.id,
+              ]);
+              downloadPdfTable({
+                filename: `organizations-${csvDateStamp()}.pdf`,
+                title: "Organizations",
+                subtitle: `${filtered.length} row(s) · ${csvDateStamp()}`,
+                headers,
+                rows,
+              });
+              toast.success(`Downloaded PDF (${filtered.length}).`);
+            }}
+          />
+        }
+      >
         <FilterSelect value={filterPlan} onChange={(v) => setFilterPlan(v as PlanCode | "all")} options={[
           { value: "all", label: "All Plans" },
           { value: "STARTER", label: "Starter" },
