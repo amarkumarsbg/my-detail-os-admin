@@ -18,12 +18,14 @@ const BASE_STYLE: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   borderRadius: "9999px",
-  padding: "4px 12px",
-  fontSize: "12px",
+  padding: "4px 10px",
+  fontSize: "11px",
   fontWeight: 600,
-  lineHeight: 1.4,
+  lineHeight: 1.3,
   whiteSpace: "nowrap",
   flexShrink: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {

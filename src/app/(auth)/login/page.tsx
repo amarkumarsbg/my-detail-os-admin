@@ -40,17 +40,15 @@ export default function LoginPage() {
     }
   }
 
+  function scrollFieldIntoView(e: React.FocusEvent<HTMLInputElement>) {
+    // Keep focused field above the mobile keyboard
+    requestAnimationFrame(() => {
+      e.target.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#f8fafc",
-        padding: "24px 16px",
-      }}
-    >
+    <div className="login-page">
       <div
         style={{
           width: "100%",
@@ -59,7 +57,7 @@ export default function LoginPage() {
           borderRadius: "16px",
           border: "1px solid #e2e8f0",
           boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
-          padding: "40px 36px 32px",
+          padding: "32px 24px 28px",
         }}
       >
         {/* Logo + heading */}
@@ -155,7 +153,10 @@ export default function LoginPage() {
                 boxSizing: "border-box",
                 transition: "border-color 0.15s",
               }}
-              onFocus={(e) => (e.target.style.borderColor = "#50B0A0")}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#50B0A0";
+                scrollFieldIntoView(e);
+              }}
               onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
             />
           </div>
@@ -198,7 +199,10 @@ export default function LoginPage() {
                   boxSizing: "border-box",
                   transition: "border-color 0.15s",
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "#50B0A0")}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#50B0A0";
+                  scrollFieldIntoView(e);
+                }}
                 onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
               />
               <button
@@ -272,6 +276,35 @@ export default function LoginPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         input::placeholder { color: #94a3b8; }
+
+        .login-page {
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          background: #f8fafc;
+          padding: max(16px, env(safe-area-inset-top, 0px)) 16px 24px;
+          overflow-y: auto;
+          box-sizing: border-box;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* Keep form near the top on phones so fields stay above the keyboard */
+        @media (max-width: 639px) {
+          .login-page {
+            padding-top: max(32px, env(safe-area-inset-top, 0px));
+            padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+          }
+        }
+
+        /* Desktop: center the card vertically */
+        @media (min-width: 640px) {
+          .login-page {
+            align-items: center;
+            padding: 24px 16px;
+          }
+        }
       `}</style>
     </div>
   );

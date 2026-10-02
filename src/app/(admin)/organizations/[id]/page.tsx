@@ -121,9 +121,17 @@ function OrgCard({ children, style }: { children: React.ReactNode; style?: React
 
 function OrgCardHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
   return (
-    <div style={{ padding: "20px 24px 0" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={{ padding: "16px 16px 0", paddingInline: "clamp(16px, 3vw, 24px)", paddingTop: "clamp(16px, 2.5vw, 20px)" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
+        <div style={{ flex: "1 1 160px", minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.1px" }}>
             {title}
           </h3>
@@ -133,7 +141,22 @@ function OrgCardHeader({ title, subtitle, right }: { title: string; subtitle?: s
             </p>
           )}
         </div>
-        {right && <div style={{ flexShrink: 0 }}>{right}</div>}
+        {right && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: 6,
+              flex: "1 1 200px",
+              minWidth: 0,
+              maxWidth: "100%",
+            }}
+          >
+            {right}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -746,13 +769,13 @@ export default function OrgDetailPage() {
               title="Subscription"
               subtitle="Current subscription details"
               right={
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
+                <>
                   <PlanBadge planCode={sub.planCode} />
                   <SubscriptionStatusBadge status={sub.status} />
                   <PaymentStatusBadge status={sub.paymentStatus} />
                   <GraceStatusBadge status={sub.graceOrLock} />
                   {sub.exportLocked && <Badge variant="destructive">Export Locked</Badge>}
-                </div>
+                </>
               }
             />
             <OrgCardBody>
