@@ -19,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!ready) return <PageSkeleton />;
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--page-bg)" }}>
+    <div className="flex h-dvh overflow-hidden" style={{ background: "var(--page-bg)" }}>
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
@@ -32,8 +32,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar — drawer on mobile, static on desktop */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 shrink-0
-        md:relative md:z-auto md:translate-x-0!
+        fixed inset-y-0 left-0 z-50 shrink-0 h-dvh
+        md:relative md:z-auto md:h-full md:translate-x-0!
         transition-transform duration-200 ease-in-out
         ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>

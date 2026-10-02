@@ -52,7 +52,7 @@ function isActive(pathname: string, href: string) {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, clearSession } = useAuthStore();
-  const { collapsed, collapse, closeMobile } = useSidebarStore();
+  const { collapsed, closeMobile } = useSidebarStore();
   const pendingPayments = usePendingPaymentsStore((s) => s.count);
   const startPolling = usePendingPaymentsStore((s) => s.startPolling);
   const [isMobile, setIsMobile] = useState(false);
@@ -72,7 +72,8 @@ export function Sidebar() {
   const isCollapsed = collapsed && !isMobile;
 
   function handleNav() {
-    collapse();
+    // Only close the mobile drawer — do not collapse the desktop sidebar
+    // (collapsing hid the "Sign out" label after every navigation).
     closeMobile();
   }
 
@@ -80,8 +81,8 @@ export function Sidebar() {
     <aside
       style={{
         width: W,
-        minHeight: "100vh",
         height: "100%",
+        maxHeight: "100%",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
@@ -157,7 +158,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: isCollapsed ? "12px 0" : "12px 10px", display: "flex", flexDirection: "column", gap: isCollapsed ? "4px" : "12px" }}>
+      <nav style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: isCollapsed ? "12px 0" : "12px 10px", display: "flex", flexDirection: "column", gap: isCollapsed ? "4px" : "12px" }}>
         {NAV_SECTIONS.map((section, groupIdx) => (
           <section key={section.label} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {!isCollapsed && (
@@ -291,15 +292,19 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer / Profile */}
+      {/* Footer / Profile — always pinned so Sign out stays visible */}
       <div
         style={{
           flexShrink: 0,
+          marginTop: "auto",
           borderTop: "1px solid var(--border)",
           padding: isCollapsed ? "10px 4px" : "10px",
           display: "flex",
           flexDirection: "column",
           gap: "2px",
+          background: "var(--card)",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         {!isCollapsed && (
@@ -314,7 +319,8 @@ export function Sidebar() {
           </div>
         )}
         <button
-          title={isCollapsed ? "Sign out" : undefined}
+          type="button"
+          title="Sign out"
           aria-label="Sign out"
           onClick={() => { clearSession(); window.location.href = "/login"; }}
           style={{
@@ -333,7 +339,7 @@ export function Sidebar() {
             justifyContent: isCollapsed ? "center" : undefined,
             transition: "background 0.15s",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--destructive-hover, #fef2f2)"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fef2f2"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
         >
           <LogOut style={{ width: "16px", height: "16px", flexShrink: 0 }} />

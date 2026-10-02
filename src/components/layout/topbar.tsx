@@ -181,16 +181,12 @@ export function Topbar({ title, description, actions }: TopbarProps) {
             <div
               role="dialog"
               aria-label="Notifications"
+              className="fixed top-14 left-3 right-3 z-50 w-auto max-w-none sm:absolute sm:top-[calc(100%+8px)] sm:left-auto sm:right-0 sm:w-[min(360px,calc(100vw-24px))]"
               style={{
-                position: "absolute",
-                top: "calc(100% + 8px)",
-                right: 0,
-                width: "min(360px, calc(100vw - 24px))",
                 background: "var(--card)",
                 border: "1px solid var(--border)",
                 borderRadius: 12,
                 boxShadow: "0 12px 40px rgba(15, 23, 42, 0.12)",
-                zIndex: 50,
                 overflow: "hidden",
               }}
             >
@@ -204,7 +200,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                   borderBottom: "1px solid var(--border)",
                 }}
               >
-                <div>
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
                     Notifications
                   </p>
@@ -227,6 +223,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                       padding: 0,
+                      flexShrink: 0,
                     }}
                   >
                     Review all
