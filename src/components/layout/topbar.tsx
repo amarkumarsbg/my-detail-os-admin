@@ -15,7 +15,7 @@ interface TopbarProps { title?: string; description?: string; actions?: ReactNod
 export function Topbar({ title, description, actions }: TopbarProps) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { collapsed, expand, toggle, openMobile } = useSidebarStore();
+  const { collapsed, expand, openMobile } = useSidebarStore();
   const pendingCount = usePendingPaymentsStore((s) => s.count);
   const unreadCount = usePendingPaymentsStore((s) => s.unreadCount);
   const pendingItems = usePendingPaymentsStore((s) => s.items);
@@ -82,17 +82,19 @@ export function Topbar({ title, description, actions }: TopbarProps) {
         <Menu style={{ width: 20, height: 20 }} />
       </button>
 
-      {/* Desktop: collapse / expand sidebar */}
-      <button
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="hidden md:flex"
-        onClick={() => (collapsed ? expand() : toggle())}
-        style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", flexShrink: 0, transition: "background 0.15s" }}
-        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--accent)")}
-        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-      >
-        <PanelLeft style={{ width: 16, height: 16 }} />
-      </button>
+      {/* Desktop: expand sidebar after a menu click collapses it */}
+      {collapsed && (
+        <button
+          aria-label="Expand sidebar"
+          className="hidden md:flex"
+          onClick={expand}
+          style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", flexShrink: 0, transition: "background 0.15s" }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--accent)")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
+        >
+          <PanelLeft style={{ width: 16, height: 16 }} />
+        </button>
+      )}
 
       {/* Title */}
       <div style={{ flex: 1, minWidth: 0 }}>
