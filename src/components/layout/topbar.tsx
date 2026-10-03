@@ -2,13 +2,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, PanelLeft, Sun, Moon, Menu, CreditCard } from "lucide-react";
+import { Bell, PanelLeft, Sun, Moon, Menu, CreditCard, LifeBuoy } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
+import { useSupportTicketsStore } from "@/store/support-tickets-store";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 const PAYMENTS_REVIEW_HREF = "/payments?status=review";
+const SUPPORT_HREF = "/support-tickets";
 
 interface TopbarProps { title?: string; description?: string; actions?: ReactNode; }
 
@@ -17,13 +19,22 @@ export function Topbar({ title, description, actions }: TopbarProps) {
   const user = useAuthStore((s) => s.user);
   const { collapsed, expand, openMobile } = useSidebarStore();
   const pendingCount = usePendingPaymentsStore((s) => s.count);
-  const unreadCount = usePendingPaymentsStore((s) => s.unreadCount);
+  const paymentUnread = usePendingPaymentsStore((s) => s.unreadCount);
   const pendingItems = usePendingPaymentsStore((s) => s.items);
   const refreshPending = usePendingPaymentsStore((s) => s.refresh);
-  const markSeen = usePendingPaymentsStore((s) => s.markSeen);
+  const markPaymentsSeen = usePendingPaymentsStore((s) => s.markSeen);
+
+  const supportOpenCount = useSupportTicketsStore((s) => s.openCount);
+  const supportUnread = useSupportTicketsStore((s) => s.unreadCount);
+  const supportItems = useSupportTicketsStore((s) => s.items);
+  const refreshSupport = useSupportTicketsStore((s) => s.refresh);
+  const markSupportSeen = useSupportTicketsStore((s) => s.markSeen);
+
   const [dark, setDark] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const unreadTotal = paymentUnread + supportUnread;
 
   useEffect(() => {
     const stored = localStorage.getItem("admin_dark_mode");
@@ -34,7 +45,13 @@ export function Topbar({ title, description, actions }: TopbarProps) {
 
   useEffect(() => {
     if (!notifOpen) return;
-    void refreshPending({ silentToast: true }).then(() => markSeen());
+    void Promise.all([
+      refreshPending({ silentToast: true }),
+      refreshSupport({ silentToast: true }),
+    ]).then(() => {
+      markPaymentsSeen();
+      markSupportSeen();
+    });
 
     function onPointerDown(e: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -50,7 +67,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [notifOpen, refreshPending, markSeen]);
+  }, [notifOpen, refreshPending, refreshSupport, markPaymentsSeen, markSupportSeen]);
 
   function toggleDark() {
     const next = !dark;
@@ -60,19 +77,38 @@ export function Topbar({ title, description, actions }: TopbarProps) {
   }
 
   function goToPaymentsReview() {
-    markSeen();
+    markPaymentsSeen();
     setNotifOpen(false);
     router.push(PAYMENTS_REVIEW_HREF);
   }
 
+  function goToSupport(ticketId?: string) {
+    markSupportSeen();
+    setNotifOpen(false);
+    router.push(ticketId ? `${SUPPORT_HREF}?ticket=${encodeURIComponent(ticketId)}` : SUPPORT_HREF);
+  }
+
   const badgeLabel =
-    unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : null;
+    unreadTotal > 0 ? (unreadTotal > 99 ? "99+" : String(unreadTotal)) : null;
+
+  const summaryParts: string[] = [];
+  if (pendingCount > 0) {
+    summaryParts.push(
+      `${pendingCount} payment${pendingCount === 1 ? "" : "s"} awaiting review`
+    );
+  }
+  if (supportOpenCount > 0) {
+    summaryParts.push(
+      `${supportOpenCount} open support ticket${supportOpenCount === 1 ? "" : "s"}`
+    );
+  }
+  const summaryText = summaryParts.length > 0 ? summaryParts.join(" · ") : "You're all caught up";
+  const hasAnyItems = pendingItems.length > 0 || supportItems.length > 0;
 
   return (
     <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, padding: "0 16px", background: "var(--topbar-bg)", borderBottom: "1px solid var(--topbar-border)", flexShrink: 0, gap: 8, transition: "background 0.2s, border-color 0.2s" }}
       className="md:h-16 md:px-6"
     >
-      {/* Mobile hamburger */}
       <button
         aria-label="Open navigation"
         className="flex md:hidden"
@@ -82,7 +118,6 @@ export function Topbar({ title, description, actions }: TopbarProps) {
         <Menu style={{ width: 20, height: 20 }} />
       </button>
 
-      {/* Desktop: expand sidebar after a menu click collapses it */}
       {collapsed && (
         <button
           aria-label="Expand sidebar"
@@ -96,13 +131,11 @@ export function Topbar({ title, description, actions }: TopbarProps) {
         </button>
       )}
 
-      {/* Title */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {title && <h1 style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", margin: 0, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} className="md:text-base">{title}</h1>}
         {description && <p className="hidden sm:block" style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "1px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{description}</p>}
       </div>
 
-      {/* Right controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
         <div className="hidden sm:flex" style={{ alignItems: "center", gap: 4 }}>
           {actions}
@@ -205,34 +238,13 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                     Notifications
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }}>
-                    {pendingCount > 0
-                      ? `${pendingCount} payment${pendingCount === 1 ? "" : "s"} awaiting review`
-                      : "You're all caught up"}
+                    {summaryText}
                   </p>
                 </div>
-                {pendingCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={goToPaymentsReview}
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#c2410c",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      padding: 0,
-                      flexShrink: 0,
-                    }}
-                  >
-                    Review all
-                  </button>
-                )}
               </div>
 
-              <div style={{ maxHeight: 320, overflowY: "auto" }}>
-                {pendingItems.length === 0 ? (
+              <div style={{ maxHeight: 360, overflowY: "auto" }}>
+                {!hasAnyItems ? (
                   <div
                     style={{
                       padding: "28px 16px",
@@ -241,100 +253,202 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                       fontSize: 13,
                     }}
                   >
-                    No pending renewals right now.
+                    No pending payments or support replies right now.
                   </div>
                 ) : (
-                  pendingItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={goToPaymentsReview}
-                      style={{
-                        display: "flex",
-                        gap: 10,
-                        width: "100%",
-                        padding: "12px 14px",
-                        border: "none",
-                        borderBottom: "1px solid var(--border)",
-                        background: "transparent",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        color: "inherit",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                      }}
-                    >
-                      <span
+                  <>
+                    {supportItems.map((item) => (
+                      <button
+                        key={`support-${item.id}`}
+                        type="button"
+                        onClick={() => goToSupport(item.id)}
                         style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          background: "#fff7ed",
-                          border: "1px solid #fed7aa",
-                          color: "#ea580c",
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
+                          gap: 10,
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "none",
+                          borderBottom: "1px solid var(--border)",
+                          background: "transparent",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          color: "inherit",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                         }}
                       >
-                        <CreditCard style={{ width: 14, height: 14 }} />
-                      </span>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p
+                        <span
                           style={{
-                            margin: 0,
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: "var(--foreground)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: "#EFF8F6",
+                            border: "1px solid #A8D9D0",
+                            color: "#3D8F82",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
                           }}
                         >
-                          {item.organizationName}
-                        </p>
-                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted-foreground)" }}>
-                          {item.planName}
-                          {item.amount != null
-                            ? ` · ${formatCurrency(item.amount, item.currency)}`
-                            : ""}
-                          {" · "}
-                          {item.status === "PROCESSING" ? "Processing" : "Pending"}
-                        </p>
-                        <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }}>
-                          {formatDateTime(item.createdAt)}
-                        </p>
-                      </div>
-                    </button>
-                  ))
+                          <LifeBuoy style={{ width: 14, height: 14 }} />
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "var(--foreground)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {item.subject}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted-foreground)" }}>
+                            {item.organizationName || "Workshop"}
+                            {" · "}
+                            {item.messageCount} msg{item.messageCount === 1 ? "" : "s"}
+                            {" · "}
+                            {item.status.replace(/_/g, " ")}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }}>
+                            {item.lastMessagePreview
+                              ? item.lastMessagePreview.slice(0, 80)
+                              : formatDateTime(item.lastMessageAt ?? item.updatedAt)}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+
+                    {pendingItems.map((item) => (
+                      <button
+                        key={`pay-${item.id}`}
+                        type="button"
+                        onClick={goToPaymentsReview}
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "none",
+                          borderBottom: "1px solid var(--border)",
+                          background: "transparent",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          color: "inherit",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: "#fff7ed",
+                            border: "1px solid #fed7aa",
+                            color: "#ea580c",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CreditCard style={{ width: 14, height: 14 }} />
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "var(--foreground)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {item.organizationName}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted-foreground)" }}>
+                            {item.planName}
+                            {item.amount != null
+                              ? ` · ${formatCurrency(item.amount, item.currency)}`
+                              : ""}
+                            {" · "}
+                            {item.status === "PROCESSING" ? "Processing" : "Pending"}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }}>
+                            {formatDateTime(item.createdAt)}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </>
                 )}
               </div>
 
-              {pendingCount > 0 && (
-                <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-                  <button
-                    type="button"
-                    onClick={goToPaymentsReview}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "center",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "#50B0A0",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Open payments queue →
-                  </button>
+              {(supportOpenCount > 0 || pendingCount > 0) && (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderTop: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  {supportOpenCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => goToSupport()}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "center",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#50B0A0",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      Open support inbox →
+                    </button>
+                  )}
+                  {pendingCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={goToPaymentsReview}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "center",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#50B0A0",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      Open payments queue →
+                    </button>
+                  )}
                 </div>
               )}
             </div>

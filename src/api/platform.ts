@@ -593,6 +593,120 @@ export async function listPlatformContacts(params?: {
   return apiClient.get(`/api/platform/contacts${q ? `?${q}` : ""}`);
 }
 
+// ─── Support tickets (workshop Help & Support) ────────────────────────────────
+
+export type PlatformSupportTicketStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "WAITING_ON_CUSTOMER"
+  | "RESOLVED"
+  | "CLOSED";
+
+export type PlatformSupportTicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export type PlatformSupportMessageAuthor = "WORKSHOP" | "SUPPORT";
+
+export interface PlatformSupportTicketMessage {
+  id: string;
+  author: PlatformSupportMessageAuthor;
+  authorName: string;
+  body: string;
+  createdAt: string;
+  attachmentIds?: string[];
+}
+
+export interface PlatformSupportTicketAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  dataUrl: string;
+  createdAt?: string;
+  kind?: "file" | "voice";
+}
+
+export interface PlatformSupportTicketListItem {
+  id: string;
+  subject: string;
+  category: string;
+  priority: PlatformSupportTicketPriority;
+  status: PlatformSupportTicketStatus;
+  organizationId: string | null;
+  organizationName: string | null;
+  createdByName: string | null;
+  messageCount: number;
+  lastMessageAt: string | null;
+  lastMessagePreview: string | null;
+  lastMessageAuthor: PlatformSupportMessageAuthor | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformSupportTicket {
+  id: string;
+  subject: string;
+  category: string;
+  priority: PlatformSupportTicketPriority;
+  description: string;
+  status: PlatformSupportTicketStatus;
+  createdByUserId?: string;
+  createdByName?: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  attachments: PlatformSupportTicketAttachment[];
+  messages: PlatformSupportTicketMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listPlatformSupportTickets(params?: {
+  limit?: number;
+  search?: string;
+  status?: string;
+  organizationId?: string;
+}): Promise<{
+  tickets: PlatformSupportTicketListItem[];
+  total: number;
+  openCount: number;
+}> {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.search) qs.set("search", params.search);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.organizationId) qs.set("organizationId", params.organizationId);
+  const q = qs.toString();
+  return apiClient.get(`/api/platform/support-tickets${q ? `?${q}` : ""}`);
+}
+
+export async function getPlatformSupportTicket(id: string): Promise<{
+  ticket: PlatformSupportTicket;
+  organization: { id: string; name: string; slug: string } | null;
+}> {
+  return apiClient.get(`/api/platform/support-tickets/${id}`);
+}
+
+export async function patchPlatformSupportTicket(
+  id: string,
+  input: { status?: PlatformSupportTicketStatus; priority?: PlatformSupportTicketPriority }
+): Promise<{ ticket: PlatformSupportTicket }> {
+  return apiClient.patch(`/api/platform/support-tickets/${id}`, input);
+}
+
+export async function replyPlatformSupportTicket(
+  id: string,
+  input: {
+    body: string;
+    status?: PlatformSupportTicketStatus;
+    attachments?: PlatformSupportTicketAttachment[];
+  }
+): Promise<{
+  ticket: PlatformSupportTicket;
+  message: PlatformSupportTicketMessage;
+  repliedBy: string;
+}> {
+  return apiClient.post(`/api/platform/support-tickets/${id}/reply`, input);
+}
+
 // ─── Suspend / Restore ────────────────────────────────────────────────────────
 
 export async function suspendOrg(orgId: string, reason: string): Promise<{ suspended: boolean; reason: string }> {

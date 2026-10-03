@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Flag, BarChart3 } from "lucide-react";
+import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Flag, BarChart3, LifeBuoy } from "lucide-react";
 import { useAuthStore, canAccessNav } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
+import { useSupportTicketsStore } from "@/store/support-tickets-store";
 
 const NAV_SECTIONS = [
   {
@@ -39,6 +40,7 @@ const NAV_SECTIONS = [
     label: "Platform",
     items: [
       { label: "Usage", href: "/usage", icon: BarChart3 },
+      { label: "Support Tickets", href: "/support-tickets", icon: LifeBuoy },
       { label: "Contact Messages", href: "/contacts", icon: Mail },
       { label: "Audit Logs", href: "/audit", icon: ClipboardList },
       { label: "Messaging", href: "/messaging", icon: FileText },
@@ -62,7 +64,9 @@ export function Sidebar() {
   const { user, clearSession } = useAuthStore();
   const { collapsed, closeMobile, collapse } = useSidebarStore();
   const pendingPayments = usePendingPaymentsStore((s) => s.count);
-  const startPolling = usePendingPaymentsStore((s) => s.startPolling);
+  const startPaymentPolling = usePendingPaymentsStore((s) => s.startPolling);
+  const supportUnreadCount = useSupportTicketsStore((s) => s.unreadCount);
+  const startSupportPolling = useSupportTicketsStore((s) => s.startPolling);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -73,7 +77,8 @@ export function Sidebar() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  useEffect(() => startPolling(), [startPolling]);
+  useEffect(() => startPaymentPolling(), [startPaymentPolling]);
+  useEffect(() => startSupportPolling(), [startSupportPolling]);
 
   // On mobile always show full sidebar; collapsed only applies on desktop
   const W = (collapsed && !isMobile) ? "56px" : "260px";
@@ -189,7 +194,17 @@ export function Sidebar() {
                     ? pendingPayments > 99
                       ? "99+"
                       : String(pendingPayments)
-                    : null;
+                    : href === "/support-tickets" && supportUnreadCount > 0
+                      ? supportUnreadCount > 99
+                        ? "99+"
+                        : String(supportUnreadCount)
+                      : null;
+                const badgeKind =
+                  href === "/payments"
+                    ? "pending"
+                    : href === "/support-tickets"
+                      ? "unread"
+                      : null;
                 const navHref =
                   href === "/payments" && pendingPayments > 0
                     ? "/payments?status=review"
@@ -200,12 +215,14 @@ export function Sidebar() {
                     href={navHref}
                     title={
                       isCollapsed
-                        ? badge
-                          ? `${label} (${badge} pending)`
+                        ? badge && badgeKind
+                          ? `${label} (${badge} ${badgeKind})`
                           : label
                         : undefined
                     }
-                    aria-label={badge ? `${label}, ${badge} pending` : label}
+                    aria-label={
+                      badge && badgeKind ? `${label}, ${badge} ${badgeKind}` : label
+                    }
                     onClick={handleNav}
                     style={{
                       display: "flex",
