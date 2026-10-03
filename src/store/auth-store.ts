@@ -49,7 +49,40 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
-/** Only PLATFORM_OWNER can access the SaaS Admin Portal. */
+const PORTAL_ROLES = new Set([
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+  "SALES_REP",
+  "BILLING_SPEC",
+]);
+
+/** Platform admin portal roles from the operations spec. */
 export function isAdminRole(role: string | undefined): boolean {
-  return role === "PLATFORM_OWNER";
+  return !!role && PORTAL_ROLES.has(role);
+}
+
+export function canAccessNav(role: string | undefined, href: string): boolean {
+  if (role === "SALES_REP") {
+    return [
+      "/dashboard",
+      "/organizations",
+      "/free-trials",
+      "/upcoming-renewals",
+      "/contacts",
+      "/referrals",
+    ].some((p) => href === p || href.startsWith(`${p}/`));
+  }
+  if (role === "BILLING_SPEC") {
+    return [
+      "/dashboard",
+      "/organizations",
+      "/subscriptions",
+      "/payments",
+      "/renewals",
+      "/upcoming-renewals",
+      "/bills",
+      "/plans",
+    ].some((p) => href === p || href.startsWith(`${p}/`));
+  }
+  return true;
 }

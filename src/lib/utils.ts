@@ -50,3 +50,10 @@ export function termLabel(months: number): string {
   };
   return labels[months] ?? `${months} months`;
 }
+
+/** Razorpay Checkout / Payment Link settle from the gateway — do not Accept/Reject by hand. */
+export function needsManualPaymentReview(p: { status: string; method?: string | null }): boolean {
+  if (p.status !== "PENDING") return false;
+  const method = (p.method ?? "").toUpperCase();
+  return method !== "RAZORPAY" && method !== "RAZORPAY_LINK";
+}

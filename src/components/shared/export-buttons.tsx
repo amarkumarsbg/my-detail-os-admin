@@ -23,10 +23,12 @@ export function ExportButtons({
   disabled,
   onCsv,
   onPdf,
+  onXlsx,
 }: {
   disabled?: boolean;
   onCsv: () => void;
   onPdf: () => void;
+  onXlsx?: () => void;
 }) {
   return (
     <>
@@ -34,6 +36,12 @@ export function ExportButtons({
         <Download style={{ width: 14, height: 14 }} />
         CSV
       </button>
+      {onXlsx && (
+        <button type="button" onClick={onXlsx} disabled={disabled} style={btnStyle(!!disabled)}>
+          <Download style={{ width: 14, height: 14 }} />
+          XLSX
+        </button>
+      )}
       <button type="button" onClick={onPdf} disabled={disabled} style={btnStyle(!!disabled)}>
         <FileText style={{ width: 14, height: 14 }} />
         PDF

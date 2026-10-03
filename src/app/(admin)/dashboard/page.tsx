@@ -10,6 +10,7 @@ import {
   XCircle,
   Loader2,
   Timer,
+  LineChart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -22,13 +23,16 @@ import { SubscriptionStatusBadge, PaymentStatusBadge, PlanBadge } from "@/compon
 import { listOrganizations, verifyPayment } from "@/api/organizations";
 import {
   getPlatformDashboard,
+  getPlatformPlans,
   listPlatformPayments,
   listPlatformAudit,
   type PlatformDashboard,
   type PlatformPaymentRow,
   type PlatformAuditRow,
+  type PlatformPlansPricing,
 } from "@/api/platform";
-import { formatCurrency, formatDate, formatDateTime, daysRemainingLabel } from "@/lib/utils";
+import { computeExecutiveMetrics } from "@/lib/platform-analytics";
+import { formatCurrency, formatDate, formatDateTime, daysRemainingLabel, needsManualPaymentReview } from "@/lib/utils";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import type { OrgListItem } from "@/types";
 
@@ -51,6 +55,7 @@ export default function DashboardPage() {
   const [dash, setDash] = useState<PlatformDashboard | null>(null);
   const [payments, setPayments] = useState<PlatformPaymentRow[]>([]);
   const [logs, setLogs] = useState<PlatformAuditRow[]>([]);
+  const [pricing, setPricing] = useState<PlatformPlansPricing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,28 +66,27 @@ export default function DashboardPage() {
     if (!silent) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [dashData, orgsData, paymentsRes, pendingRes, processingRes, auditRes] = await Promise.all([
+      const [dashData, orgsData, paymentsRes, pendingRes, processingRes, auditRes, plansRes] = await Promise.all([
         getPlatformDashboard(),
         listOrganizations(),
         listPlatformPayments({ limit: 15 }).catch(() => ({ payments: [] as PlatformPaymentRow[], total: 0 })),
         listPlatformPayments({ limit: 20, status: "PENDING" }).catch(() => ({ payments: [] as PlatformPaymentRow[], total: 0 })),
         listPlatformPayments({ limit: 20, status: "PROCESSING" }).catch(() => ({ payments: [] as PlatformPaymentRow[], total: 0 })),
         listPlatformAudit({ limit: 5 }).catch(() => ({ logs: [], total: 0 })),
+        getPlatformPlans().catch(() => null),
       ]);
       setDash(dashData);
       setOrgs(orgsData);
+      setPricing(plansRes?.pricing ?? null);
       // Prefer pending first, then other recent payments (deduped)
       const byId = new Map<string, PlatformPaymentRow>();
       for (const p of [...pendingRes.payments, ...processingRes.payments, ...paymentsRes.payments]) {
         if (!byId.has(p.id)) byId.set(p.id, p);
       }
-      const merged = Array.from(byId.values()).sort((a, b) => {
-        const aPending = a.status === "PENDING" || a.status === "PROCESSING" ? 0 : 1;
-        const bPending = b.status === "PENDING" || b.status === "PROCESSING" ? 0 : 1;
-        if (aPending !== bPending) return aPending - bPending;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-      setPayments(merged.slice(0, 10));
+      const reviewQueue = Array.from(byId.values())
+        .filter(needsManualPaymentReview)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setPayments(reviewQueue.slice(0, 10));
       setLogs(auditRes.logs);
       void refreshPendingBadge({ silentToast: true });
     } catch (e: unknown) {
@@ -124,6 +128,8 @@ export default function DashboardPage() {
       .sort((a, b) => subscribedAt(b) - subscribedAt(a))
       .slice(0, 8);
   }, [orgs]);
+
+  const exec = useMemo(() => computeExecutiveMetrics(orgs, pricing), [orgs, pricing]);
 
   const statusBreakdown = useMemo(() => {
     const breakdown = dash?.subscriptionStatusBreakdown ?? {};
@@ -176,7 +182,11 @@ export default function DashboardPage() {
           <Link href="/free-trials?filter=ending_soon" style={{ textDecoration: "none", color: "inherit" }}>
             <StatCard label="Trials Ending Soon" value={loading ? "—" : trialsEndingSoon} sub="≤ 7 days" icon={AlertTriangle} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
           </Link>
-          <StatCard label="Expiring Soon" value={loading ? "—" : expiringSoon} sub="within 30 days" icon={AlertTriangle} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
+          <Link href="/upcoming-renewals" style={{ textDecoration: "none", color: "inherit" }}>
+            <StatCard label="Expiring Soon" value={loading ? "—" : expiringSoon} sub="within 30 days" icon={AlertTriangle} iconBg="#fffbeb" iconColor="#d97706" loading={loading} />
+          </Link>
+          <StatCard label="MRR" value={loading ? "—" : formatCurrency(exec.mrr, exec.currency)} sub="catalog estimate" icon={LineChart} iconBg="#EFF8F6" iconColor="#50B0A0" loading={loading} />
+          <StatCard label="ARR" value={loading ? "—" : formatCurrency(exec.arr, exec.currency)} sub="MRR × 12" icon={LineChart} iconBg="#f0fdf4" iconColor="#16a34a" loading={loading} />
           <Link href="/payments?status=review" style={{ textDecoration: "none", color: "inherit" }}>
             <StatCard label="Pending Payments" value={loading ? "—" : dash?.pendingPayments ?? 0} sub="awaiting review" icon={CreditCard} iconBg="#fff7ed" iconColor="#ea580c" loading={loading} />
           </Link>
@@ -284,12 +294,12 @@ export default function DashboardPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px 10px", borderBottom: "1px solid var(--border)" }}>
               <div>
                 <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", margin: 0 }}>Payments to Review</p>
-                <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "2px 0 0" }}>Accept or reject pending payments</p>
+                <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "2px 0 0" }}>Offline payments only — Razorpay accepts or rejects automatically</p>
               </div>
               <Link href="/payments" style={{ fontSize: "12px", color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
             </div>
             {loading ? <AdminTableSkeleton rows={4} cols={5} /> : payments.length === 0 ? (
-              <EmptyState icon={CreditCard} title="No payments yet" />
+              <EmptyState icon={CreditCard} title="No payments to review" />
             ) : (
               <div className="overflow-x-auto">
                 <AdminTable>
@@ -304,7 +314,7 @@ export default function DashboardPage() {
                   </THead>
                   <TBody>
                     {payments.map((p) => {
-                      const needsReview = p.status === "PENDING" || p.status === "PROCESSING";
+                      const needsReview = needsManualPaymentReview(p);
                       const busy = verifying === p.id;
                       return (
                         <Tr key={p.id}>

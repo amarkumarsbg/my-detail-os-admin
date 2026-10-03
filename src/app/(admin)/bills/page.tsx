@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Receipt } from "lucide-react";
+import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -10,6 +11,7 @@ import { AdminTable, THead, Th, TBody, Tr, Td, TableFooter, AdminTableSkeleton }
 import { PaymentStatusBadge } from "@/components/shared/status-badges";
 import { listPlatformBills, type PlatformBillRow } from "@/api/platform";
 import { formatCurrency, formatDate, termLabel } from "@/lib/utils";
+import { downloadTaxInvoicePdf } from "@/lib/tax-invoice-pdf";
 
 export default function BillsPage() {
   const [rows, setRows] = useState<PlatformBillRow[]>([]);
@@ -63,14 +65,14 @@ export default function BillsPage() {
             {/* Desktop table */}
             <div className="hidden md:block">
               <AdminTable>
-                <THead><tr><Th>Organization</Th><Th>Bill #</Th><Th>Plan</Th><Th>Term</Th><Th>Base</Th><Th>Extras</Th><Th>Referral</Th><Th>GST</Th><Th>Total</Th><Th>Payment</Th><Th>Date</Th></tr></THead>
+                <THead><tr><Th>Organization</Th><Th>Bill #</Th><Th>Plan</Th><Th>Term</Th><Th>Base</Th><Th>Extras</Th><Th>Referral</Th><Th>GST</Th><Th>Total</Th><Th>Payment</Th><Th>Date</Th><Th>Tax PDF</Th></tr></THead>
                 <TBody>
                   {filtered.map((b) => (
                     <Tr key={b.id}>
                       <Td><Link href={`/organizations/${b.organizationId}`} style={{ color: "#50B0A0", textDecoration: "none", fontWeight: 500 }}>{b.organizationName}</Link></Td>
                       <Td mono muted>{b.billNumber}</Td>
                       <Td muted>{b.planName}</Td>
-                      <Td muted nowrap>{termLabel(b.termMonths)}</Td>
+                      <Td muted nowrap>{b.termLabel || termLabel(b.termMonths)}</Td>
                       <Td muted>{formatCurrency(b.baseAmount)}</Td>
                       <Td muted>{(b.extraBranchCost + b.extraUserCost + b.onboardingFee) > 0 ? formatCurrency(b.extraBranchCost + b.extraUserCost + b.onboardingFee) : "—"}</Td>
                       <Td><span style={{ color: b.referralDiscount > 0 ? "#16a34a" : "#94a3b8" }}>{b.referralDiscount > 0 ? `-${formatCurrency(b.referralDiscount)}` : "—"}</span></Td>
@@ -78,6 +80,15 @@ export default function BillsPage() {
                       <Td style={{ fontWeight: 500 }}>{formatCurrency(b.totalAmount, b.currency)}</Td>
                       <Td><PaymentStatusBadge status={b.paymentStatus} /></Td>
                       <Td muted nowrap>{formatDate(b.createdAt)}</Td>
+                      <Td>
+                        <button
+                          type="button"
+                          onClick={() => { downloadTaxInvoicePdf(b, b.organizationName); toast.success("Tax invoice downloaded"); }}
+                          style={{ fontSize: 12, fontWeight: 600, color: "#50B0A0", background: "none", border: "none", cursor: "pointer" }}
+                        >
+                          PDF
+                        </button>
+                      </Td>
                     </Tr>
                   ))}
                 </TBody>
@@ -98,7 +109,7 @@ export default function BillsPage() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
                     {[
                       { label: "Plan", value: b.planName },
-                      { label: "Term", value: termLabel(b.termMonths) },
+                      { label: "Term", value: b.termLabel || termLabel(b.termMonths) },
                       { label: "Total", value: formatCurrency(b.totalAmount, b.currency) },
                       { label: "GST", value: formatCurrency(b.gstAmount) },
                       { label: "Date", value: formatDate(b.createdAt) },

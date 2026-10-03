@@ -3,6 +3,8 @@
 export type UserRole =
   | "PLATFORM_OWNER"
   | "SUPER_ADMIN"
+  | "SALES_REP"
+  | "BILLING_SPEC"
   | "ADMIN"
   | "BRANCH_MANAGER"
   | "MANAGER"

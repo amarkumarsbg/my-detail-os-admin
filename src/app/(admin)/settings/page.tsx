@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CreditCard, Activity, User, Loader2 } from "lucide-react";
+import { CreditCard, Activity, User, Loader2, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
@@ -13,12 +13,14 @@ import {
   putPlatformSettings,
   type PlatformSettingsValues,
 } from "@/api/platform";
+import { loadGrowthConfig, saveGrowthConfig } from "@/lib/growth-store";
 import { useAuthStore } from "@/store/auth-store";
 
 const NAV_ITEMS = [
   { id: "session", name: "Session", icon: User },
   { id: "defaults", name: "Billing Defaults", icon: CreditCard },
   { id: "trial", name: "Trial Defaults", icon: Activity },
+  { id: "dunning", name: "Dunning & Grace", icon: Timer },
 ] as const;
 
 type SectionId = (typeof NAV_ITEMS)[number]["id"];
@@ -122,6 +124,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [graceDays, setGraceDays] = useState(7);
+  const [dunningCsv, setDunningCsv] = useState("1, 3, 6");
+  const [trialDripCsv, setTrialDripCsv] = useState("3, 1, 0");
 
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -135,6 +140,10 @@ export default function SettingsPage() {
       setSettings(settingsRes.settings);
       setDraft(settingsRes.settings);
       setMeta(settingsRes.meta);
+      const g = loadGrowthConfig();
+      setGraceDays(g.dunning.graceDays);
+      setDunningCsv(g.dunning.dunningDays.join(", "));
+      setTrialDripCsv(g.dunning.trialDripDays.join(", "));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load settings");
     } finally {
@@ -309,6 +318,38 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+              </SectionCard>
+            )}
+
+            {active === "dunning" && (
+              <SectionCard title="Automated dunning & grace" description="Policy used by CRON workers (Day 1 / 3 / 6). Stored in this portal until the backend settings API accepts these fields.">
+                <div className="grid gap-3.5 sm:grid-cols-2 grid-cols-1">
+                  <div>
+                    <FieldLabel>Grace period (days)</FieldLabel>
+                    <IntField value={graceDays} min={1} max={30} onChange={setGraceDays} />
+                  </div>
+                  <div>
+                    <FieldLabel>Dunning reminder days</FieldLabel>
+                    <input value={dunningCsv} onChange={(e) => setDunningCsv(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <FieldLabel>Trial drip days before expiry</FieldLabel>
+                    <input value={trialDripCsv} onChange={(e) => setTrialDripCsv(e.target.value)} style={inputStyle} />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parse = (s: string) => s.split(/[,\s]+/).map((x) => Number(x)).filter((n) => Number.isFinite(n));
+                    const cfg = loadGrowthConfig();
+                    cfg.dunning = { graceDays, dunningDays: parse(dunningCsv), trialDripDays: parse(trialDripCsv) };
+                    saveGrowthConfig(cfg);
+                    toast.success("Dunning policy saved.");
+                  }}
+                  style={{ marginTop: 14, height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: "#50B0A0", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+                >
+                  Save dunning policy
+                </button>
               </SectionCard>
             )}
 

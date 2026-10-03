@@ -13,7 +13,7 @@ import { AdminTable, THead, Th, TBody, Tr, Td, TableFooter, AdminTableSkeleton }
 import { PaymentStatusBadge } from "@/components/shared/status-badges";
 import { listPlatformPayments, type PlatformPaymentRow } from "@/api/platform";
 import { verifyPayment } from "@/api/organizations";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDateTime, needsManualPaymentReview } from "@/lib/utils";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 
 function normalizeStatusFilter(raw: string | null): string {
@@ -190,7 +190,7 @@ function PaymentsPageInner() {
                       <Td muted nowrap>{formatDateTime(r.createdAt)}</Td>
                       <Td muted nowrap>{r.verifiedAt ? formatDateTime(r.verifiedAt) : "—"}</Td>
                       <Td>
-                        {(r.status === "PENDING" || r.status === "PROCESSING") && (
+                        {(needsManualPaymentReview(r)) && (
                           <div style={{ display: "flex", gap: "4px" }}>
                             <button disabled={!!verifying} onClick={() => handleVerify(r, "PAID")} style={{ display: "flex", alignItems: "center", gap: "3px", padding: "3px 8px", border: "1px solid #bbf7d0", borderRadius: "5px", background: "#f0fdf4", color: "#15803d", fontSize: "11px", fontWeight: 500, cursor: verifying ? "not-allowed" : "pointer", opacity: verifying ? 0.6 : 1 }}>{verifying === r.id ? <Loader2 style={{ width: "11px", height: "11px", animation: "spin 1s linear infinite" }} /> : <CheckCircle2 style={{ width: "11px", height: "11px" }} />} Paid</button>
                             <button disabled={!!verifying} onClick={() => handleVerify(r, "FAILED")} style={{ display: "flex", alignItems: "center", gap: "3px", padding: "3px 8px", border: "1px solid #fecaca", borderRadius: "5px", background: "#fef2f2", color: "#dc2626", fontSize: "11px", fontWeight: 500, cursor: verifying ? "not-allowed" : "pointer", opacity: verifying ? 0.6 : 1 }}>{verifying === r.id ? <Loader2 style={{ width: "11px", height: "11px", animation: "spin 1s linear infinite" }} /> : <XCircle style={{ width: "11px", height: "11px" }} />} Failed</button>
@@ -228,7 +228,7 @@ function PaymentsPageInner() {
                       </div>
                     ))}
                   </div>
-                  {(r.status === "PENDING" || r.status === "PROCESSING") && (
+                  {needsManualPaymentReview(r) && (
                     <div style={{ display: "flex", gap: 8 }}>
                       <button disabled={!!verifying} onClick={() => handleVerify(r, "PAID")} style={{ flex: 1, padding: "8px", border: "1px solid #bbf7d0", borderRadius: 8, background: "#f0fdf4", color: "#15803d", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>✓ Mark Paid</button>
                       <button disabled={!!verifying} onClick={() => handleVerify(r, "FAILED")} style={{ flex: 1, padding: "8px", border: "1px solid #fecaca", borderRadius: 8, background: "#fef2f2", color: "#dc2626", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>✗ Mark Failed</button>

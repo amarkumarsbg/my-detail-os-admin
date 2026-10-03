@@ -24,7 +24,7 @@ export default function LoginPage() {
     try {
       const session = await loginAdmin(email.trim(), password);
       if (!isAdminRole(session.user?.role)) {
-        setError("Access denied. Only PLATFORM_OWNER accounts can access this portal.");
+        setError("Access denied. This portal is for PLATFORM_OWNER, SUPER_ADMIN, Sales, and Billing roles.");
         return;
       }
       setSession(session.accessToken, session.user);

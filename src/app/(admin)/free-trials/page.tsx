@@ -36,8 +36,11 @@ import {
   patchOrganizationSubscription,
 } from "@/api/organizations";
 import { formatDate, daysRemainingLabel, termLabel } from "@/lib/utils";
+import { computeLeadScore } from "@/lib/lead-score";
 import { csvDateStamp, downloadCsv } from "@/lib/download-csv";
+import { downloadXlsx } from "@/lib/download-xlsx";
 import { downloadPdfTable } from "@/lib/download-pdf";
+import { listPlatformUsers } from "@/api/platform";
 import type { OrgListItem, PlanCode } from "@/types";
 
 function addDaysIso(fromIso: string | null | undefined, days: number): string {
@@ -130,13 +133,27 @@ function FreeTrialsPageInner() {
   const [extendTarget, setExtendTarget] = useState<OrgListItem | null>(null);
   const [extendDays, setExtendDays] = useState("7");
   const [extending, setExtending] = useState(false);
+  const [lastLoginByOrg, setLastLoginByOrg] = useState<Record<string, string | null>>({});
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     setError(null);
     try {
-      setOrgs(await listOrganizations({ subscriptionStatus: "TRIAL" }));
+      const list = await listOrganizations({ subscriptionStatus: "TRIAL" });
+      setOrgs(list);
+      try {
+        const usersRes = await listPlatformUsers({ limit: 500 });
+        const map: Record<string, string | null> = {};
+        for (const u of usersRes.users) {
+          const prev = map[u.organizationId];
+          if (!u.lastLoginAt) continue;
+          if (!prev || new Date(u.lastLoginAt) > new Date(prev)) map[u.organizationId] = u.lastLoginAt;
+        }
+        setLastLoginByOrg(map);
+      } catch {
+        setLastLoginByOrg({});
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load free trials");
     } finally {
@@ -231,11 +248,15 @@ function FreeTrialsPageInner() {
         "Days Remaining",
         "Branches Used",
         "Users Used",
+        "Lead Score",
+        "Hot Lead",
         "Status",
         "Trial State",
         "Organization ID",
       ],
-      rows: filtered.map((o) => [
+      rows: filtered.map((o) => {
+        const lead = computeLeadScore(o, lastLoginByOrg[o.organization.id]);
+        return [
         o.organization.name,
         o.organization.slug ?? "",
         o.organization.ownerName ?? "",
@@ -246,10 +267,13 @@ function FreeTrialsPageInner() {
         o.subscription.daysRemaining ?? "",
         o.usage.branchesUsed,
         o.usage.usersUsed,
+        lead.score,
+        lead.hot ? "YES" : "NO",
         o.subscription.status,
         trialVisualStatus(o),
         o.organization.id,
-      ]),
+      ];
+      }),
     };
   }
 
@@ -342,6 +366,12 @@ function FreeTrialsPageInner() {
           <ExportButtons
             disabled={loading || filtered.length === 0}
             onCsv={downloadFilteredCsv}
+            onXlsx={() => {
+              if (filtered.length === 0) { toast.error("No rows to download."); return; }
+              const { headers, rows } = exportRows();
+              downloadXlsx(`free-trials-${tab}-${csvDateStamp()}.xls`, headers, rows);
+              toast.success(`Downloaded XLSX (${filtered.length} rows).`);
+            }}
             onPdf={downloadFilteredPdf}
           />
         }
@@ -493,6 +523,7 @@ function FreeTrialsPageInner() {
                     <Th>Days Remaining</Th>
                     <Th>Branches</Th>
                     <Th>Users</Th>
+                    <Th>Lead</Th>
                     <Th>Status</Th>
                     <Th></Th>
                   </tr>
@@ -550,6 +581,17 @@ function FreeTrialsPageInner() {
                         </Td>
                         <Td muted>
                           {o.usage.usersUsed}/{s.limits.maxStaff ?? "∞"}
+                        </Td>
+                        <Td>
+                          {(() => {
+                            const lead = computeLeadScore(o, lastLoginByOrg[o.organization.id]);
+                            return (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                                <span style={{ fontWeight: 600, fontSize: 13 }}>{lead.score}</span>
+                                {lead.hot && <Badge variant="destructive">HOT LEAD</Badge>}
+                              </div>
+                            );
+                          })()}
                         </Td>
                         <Td>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -668,7 +710,12 @@ function FreeTrialsPageInner() {
                           {o.organization.ownerEmail ? ` · ${o.organization.ownerEmail}` : ""}
                         </div>
                       </div>
-                      <TrialVisualBadge org={o} />
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                        <TrialVisualBadge org={o} />
+                        {computeLeadScore(o, lastLoginByOrg[o.organization.id]).hot && (
+                          <Badge variant="destructive">HOT LEAD</Badge>
+                        )}
+                      </div>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       <PlanBadge planCode={s.planCode} />

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer } from "lucide-react";
-import { useAuthStore } from "@/store/auth-store";
+import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Handshake, Flag } from "lucide-react";
+import { useAuthStore, canAccessNav } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 
@@ -22,19 +22,28 @@ const NAV_SECTIONS = [
     items: [
       { label: "Subscriptions", href: "/subscriptions", icon: CreditCard },
       { label: "Payments", href: "/payments", icon: FileText },
+      { label: "Upcoming Renewals", href: "/upcoming-renewals", icon: CalendarClock },
       { label: "Renewals", href: "/renewals", icon: RefreshCw },
       { label: "Bills", href: "/bills", icon: Receipt },
       { label: "Plans", href: "/plans", icon: Tag },
     ],
   },
   {
+    label: "Growth",
+    items: [
+      { label: "Referrals", href: "/referrals", icon: Tag },
+      { label: "Affiliates", href: "/affiliates", icon: Handshake },
+      { label: "Banners", href: "/banners", icon: Megaphone },
+    ],
+  },
+  {
     label: "Platform",
     items: [
       { label: "Usage", href: "/usage", icon: LayoutDashboard },
-      { label: "Referrals", href: "/referrals", icon: Tag },
       { label: "Contact Messages", href: "/contacts", icon: Mail },
       { label: "Audit Logs", href: "/audit", icon: ClipboardList },
       { label: "Messaging", href: "/messaging", icon: FileText },
+      { label: "Feature Flags", href: "/feature-flags", icon: Flag },
     ],
   },
   {
@@ -159,7 +168,10 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: isCollapsed ? "12px 0" : "12px 10px", display: "flex", flexDirection: "column", gap: isCollapsed ? "4px" : "12px" }}>
-        {NAV_SECTIONS.map((section, groupIdx) => (
+        {NAV_SECTIONS.map((section) => ({
+          ...section,
+          items: section.items.filter((item) => canAccessNav(user?.role, item.href)),
+        })).filter((section) => section.items.length > 0).map((section, groupIdx) => (
           <section key={section.label} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {!isCollapsed && (
               <div style={{ padding: groupIdx === 0 ? "0 12px 6px" : "16px 12px 6px" }}>

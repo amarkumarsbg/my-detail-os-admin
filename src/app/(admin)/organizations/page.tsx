@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Building2 } from "lucide-react";
+import { Building2, Plus } from "lucide-react";
+import { ProvisionOrgDialog } from "@/components/shared/provision-org-dialog";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ErrorBanner } from "@/components/shared/error-banner";
@@ -26,6 +27,7 @@ export default function OrganizationsPage() {
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState<PlanCode | "all">("all");
   const [filterStatus, setFilterStatus] = useState<FS>("all");
+  const [provisionOpen, setProvisionOpen] = useState(false);
 
   async function load(silent = false) {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -39,32 +41,41 @@ export default function OrganizationsPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return orgs.filter((o) => {
-      if (q) {
-        const hay = [
-          o.organization.name,
-          o.organization.id,
-          o.organization.slug,
-          o.organization.ownerName,
-          o.organization.ownerEmail,
-          o.organization.ownerPhone,
-          o.organization.primaryBranchName,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (filterPlan !== "all" && o.subscription.planCode !== filterPlan) return false;
-      const s = o.subscription;
-      if (filterStatus === "active") return s.status === "ACTIVE";
-      if (filterStatus === "trial") return s.status === "TRIAL";
-      if (filterStatus === "expired") return s.status === "EXPIRED";
-      if (filterStatus === "past_due") return s.status === "PAST_DUE";
-      if (filterStatus === "cancelled") return s.status === "CANCELLED";
-      if (filterStatus === "expiring") { const d = s.daysRemaining; return d != null && d > 0 && d <= 30; }
-      return true;
-    });
+    return orgs
+      .filter((o) => {
+        if (q) {
+          const hay = [
+            o.organization.name,
+            o.organization.id,
+            o.organization.slug,
+            o.organization.ownerName,
+            o.organization.ownerEmail,
+            o.organization.ownerPhone,
+            o.organization.primaryBranchName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (filterPlan !== "all" && o.subscription.planCode !== filterPlan) return false;
+        const s = o.subscription;
+        if (filterStatus === "active") return s.status === "ACTIVE";
+        if (filterStatus === "trial") return s.status === "TRIAL";
+        if (filterStatus === "expired") return s.status === "EXPIRED";
+        if (filterStatus === "past_due") return s.status === "PAST_DUE";
+        if (filterStatus === "cancelled") return s.status === "CANCELLED";
+        if (filterStatus === "expiring") {
+          const d = s.daysRemaining;
+          return d != null && d > 0 && d <= 30;
+        }
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.organization.createdAt ?? 0).getTime() -
+          new Date(a.organization.createdAt ?? 0).getTime()
+      );
   }, [orgs, search, filterPlan, filterStatus]);
 
   return (
@@ -77,7 +88,11 @@ export default function OrganizationsPage() {
         onRefresh={() => load(true)}
         refreshing={refreshing}
         rightSlot={
-          <ExportButtons
+          <>
+            <button type="button" onClick={() => setProvisionOpen(true)} style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "none", background: "#50B0A0", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Plus style={{ width: 14, height: 14 }} /> Provision org
+            </button>
+            <ExportButtons
             disabled={loading || filtered.length === 0}
             onCsv={() => {
               if (filtered.length === 0) {
@@ -158,6 +173,7 @@ export default function OrganizationsPage() {
               toast.success(`Downloaded PDF (${filtered.length}).`);
             }}
           />
+          </>
         }
       >
         <FilterSelect value={filterPlan} onChange={(v) => setFilterPlan(v as PlanCode | "all")} options={[
@@ -270,6 +286,7 @@ export default function OrganizationsPage() {
           </>
         )}
       </div>
+      <ProvisionOrgDialog open={provisionOpen} onClose={() => setProvisionOpen(false)} onCreated={() => load(true)} />
     </div>
   );
 }

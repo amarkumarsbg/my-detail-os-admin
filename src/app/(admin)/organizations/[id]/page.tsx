@@ -19,6 +19,10 @@ import {
   Plus,
   Download,
   FileDown,
+  LogIn,
+  Link2,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
@@ -40,6 +44,13 @@ import {
   verifyPayment,
   markPaid,
   convertTrial,
+  impersonateOrganization,
+  patchOrganizationProfile,
+  createOrganizationPaymentLink,
+  resendOrganizationPaymentLink,
+  type CreatePaymentLinkResult,
+  type PaymentLinkSendVia,
+  type PaymentLinkDiscountType,
 } from "@/api/organizations";
 import {
   getPlatformPlans,
@@ -52,7 +63,11 @@ import {
   type PlatformUserRow,
   type PlatformBranchRow,
   type PlatformAuditRow,
+  type PlatformPlansPricing,
 } from "@/api/platform";
+import { downloadTaxInvoicePdf } from "@/lib/tax-invoice-pdf";
+import { prorateCredit, estimatePlanAmount, estimateCheckoutQuote } from "@/lib/platform-analytics";
+import { loadGrowthConfig, saveGrowthConfig } from "@/lib/growth-store";
 import { ApiError } from "@/lib/api-client";
 import { OrganizationActivityPanel } from "@/components/shared/organization-activity-panel";
 import { PlatformAuditList } from "@/components/shared/platform-audit-list";
@@ -62,6 +77,7 @@ import {
   formatDateTime,
   daysRemainingLabel,
   termLabel,
+  needsManualPaymentReview,
 } from "@/lib/utils";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import {
@@ -294,6 +310,13 @@ export default function OrgDetailPage() {
     { value: "CUSTOM", label: "CUSTOM" },
   ]);
   const [patchNotes, setPatchNotes] = useState("");
+  const [patchMaxBranches, setPatchMaxBranches] = useState("");
+  const [patchMaxUsers, setPatchMaxUsers] = useState("");
+  const [patchTermMonths, setPatchTermMonths] = useState("12");
+  const [patchExpiresAt, setPatchExpiresAt] = useState("");
+  const [billingEmail, setBillingEmail] = useState("");
+  const [impersonating, setImpersonating] = useState(false);
+  const [pricing, setPricing] = useState<PlatformPlansPricing | null>(null);
 
   const [orgUsers, setOrgUsers] = useState<PlatformUserRow[]>([]);
   const [orgBranches, setOrgBranches] = useState<PlatformBranchRow[]>([]);
@@ -306,6 +329,24 @@ export default function OrgDetailPage() {
   const [markPaidTxn, setMarkPaidTxn] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+
+  const [payLinkOpen, setPayLinkOpen] = useState(false);
+  const [payLinkLoading, setPayLinkLoading] = useState(false);
+  const [payLinkPlan, setPayLinkPlan] = useState<PlanCode>("STARTER");
+  const [payLinkTerm, setPayLinkTerm] = useState<"1" | "3" | "12" | "24" | "36" | "60">("12");
+  const [payLinkExtraBranches, setPayLinkExtraBranches] = useState("0");
+  const [payLinkExtraUsers, setPayLinkExtraUsers] = useState("0");
+  const [payLinkDiscountType, setPayLinkDiscountType] = useState<PaymentLinkDiscountType>("NONE");
+  const [payLinkDiscountValue, setPayLinkDiscountValue] = useState("");
+  const [payLinkReferral, setPayLinkReferral] = useState("");
+  const [payLinkNotes, setPayLinkNotes] = useState("");
+  const [payLinkEmail, setPayLinkEmail] = useState("");
+  const [payLinkPhone, setPayLinkPhone] = useState("");
+  const [payLinkSendEmail, setPayLinkSendEmail] = useState(true);
+  const [payLinkSendSms, setPayLinkSendSms] = useState(true);
+  const [payLinkSendWhatsapp, setPayLinkSendWhatsapp] = useState(true);
+  const [payLinkResult, setPayLinkResult] = useState<CreatePaymentLinkResult | null>(null);
+  const [payLinkResending, setPayLinkResending] = useState<PaymentLinkSendVia | null>(null);
   const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
   const refreshPendingBadge = usePendingPaymentsStore((s) => s.refresh);
   const [convertTrialOpen, setConvertTrialOpen] = useState(false);
@@ -353,9 +394,19 @@ export default function OrgDetailPage() {
     setError(null);
     try {
       const data = await getOrganization(id);
-      setOrg(data);
+      setOrg({
+        ...data,
+        payments: data.payments ?? [],
+        bills: data.bills ?? [],
+      });
       setPatchStatus(data.subscription.status);
       setPatchPlan(data.subscription.planCode);
+      setPatchMaxBranches(data.subscription.maxBranchesOverride != null ? String(data.subscription.maxBranchesOverride) : "");
+      setPatchMaxUsers(data.subscription.maxUsersOverride != null ? String(data.subscription.maxUsersOverride) : "");
+      setPatchTermMonths(String(data.subscription.termMonths || 12));
+      setPatchExpiresAt(data.subscription.expiresAt ? data.subscription.expiresAt.slice(0, 10) : "");
+      const storedEmail = loadGrowthConfig().billingEmails[data.organization.id];
+      setBillingEmail(storedEmail ?? "");
       setOrgDirectoryLoading(true);
       try {
         const [usersRes, branchesRes, auditRes] = await Promise.all([
@@ -418,6 +469,7 @@ export default function OrgDetailPage() {
           label: `${p.planCode} — ${p.planName}`,
         }));
         if (opts.length) setPlanOptions(opts);
+        setPricing(res.pricing);
       })
       .catch(() => { /* keep defaults */ });
   }, []);
@@ -426,12 +478,25 @@ export default function OrgDetailPage() {
     if (!org) return;
     setPatching(true);
     try {
-      const updated = await patchOrganizationSubscription(org.organization.id, {
+      await patchOrganizationSubscription(org.organization.id, {
         status: patchStatus as OrgDetail["subscription"]["status"],
         planCode: patchPlan,
         notes: patchNotes || undefined,
+        maxBranchesOverride: patchMaxBranches.trim() === "" ? null : Number(patchMaxBranches),
+        maxUsersOverride: patchMaxUsers.trim() === "" ? null : Number(patchMaxUsers),
+        termMonths: Number(patchTermMonths) || undefined,
+        expiresAt: patchExpiresAt ? new Date(patchExpiresAt).toISOString() : undefined,
       });
-      setOrg(updated);
+      await load(true);
+      const cfg = loadGrowthConfig();
+      if (billingEmail.trim()) cfg.billingEmails[org.organization.id] = billingEmail.trim();
+      else delete cfg.billingEmails[org.organization.id];
+      saveGrowthConfig(cfg);
+      try {
+        await patchOrganizationProfile(org.organization.id, { billingEmail: billingEmail.trim() || null });
+      } catch {
+        /* billing email stored locally if API is not available yet */
+      }
       toast.success("Subscription updated successfully.");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Update failed.");
@@ -461,6 +526,135 @@ export default function OrgDetailPage() {
     }
   }
 
+  function openPayLink() {
+    if (!org) return;
+    setPayLinkPlan(org.subscription.planCode || "STARTER");
+    const term = String(org.subscription.termMonths || 12);
+    setPayLinkTerm(
+      (["1", "3", "12", "24", "36", "60"].includes(term) ? term : "12") as typeof payLinkTerm
+    );
+    setPayLinkExtraBranches("0");
+    setPayLinkExtraUsers("0");
+    setPayLinkDiscountType(org.organization.referralCode ? "CODE" : "NONE");
+    setPayLinkDiscountValue("");
+    setPayLinkReferral(org.organization.referralCode ?? "");
+    setPayLinkNotes("");
+    setPayLinkEmail(billingEmail || org.organization.ownerEmail || "");
+    setPayLinkPhone(org.organization.ownerPhone || "");
+    setPayLinkSendEmail(true);
+    setPayLinkSendSms(!!org.organization.ownerPhone);
+    setPayLinkSendWhatsapp(!!org.organization.ownerPhone);
+    setPayLinkResult(null);
+    setPayLinkOpen(true);
+  }
+
+  async function handleCreatePayLink() {
+    if (!org) return;
+    const sendVia: PaymentLinkSendVia[] = [];
+    if (payLinkSendEmail) sendVia.push("email");
+    if (payLinkSendSms) sendVia.push("sms");
+    if (payLinkSendWhatsapp) sendVia.push("whatsapp");
+    if (sendVia.length === 0) {
+      toast.error("Select at least one channel: Email, SMS, or WhatsApp.");
+      return;
+    }
+    if (sendVia.includes("email") && !payLinkEmail.trim()) {
+      toast.error("Enter an email to send the payment link.");
+      return;
+    }
+    if ((sendVia.includes("sms") || sendVia.includes("whatsapp")) && !payLinkPhone.trim()) {
+      toast.error("Enter a phone number to send via SMS / WhatsApp.");
+      return;
+    }
+    if (payLinkDiscountType === "CODE" && !payLinkReferral.trim()) {
+      toast.error("Enter a referral or coupon code.");
+      return;
+    }
+    if (
+      (payLinkDiscountType === "FLAT" || payLinkDiscountType === "PERCENTAGE") &&
+      !(Number(payLinkDiscountValue) > 0)
+    ) {
+      toast.error(
+        payLinkDiscountType === "FLAT"
+          ? "Enter a flat discount amount in ₹."
+          : "Enter a discount percentage."
+      );
+      return;
+    }
+    setPayLinkLoading(true);
+    try {
+      const termMonths = Number(payLinkTerm) as 1 | 3 | 12 | 24 | 36 | 60;
+      const res = await createOrganizationPaymentLink(org.organization.id, {
+        planCode: payLinkPlan,
+        termMonths,
+        extraBranches: Number(payLinkExtraBranches) || 0,
+        extraUsers: Number(payLinkExtraUsers) || 0,
+        discountType: payLinkDiscountType,
+        discountValue:
+          payLinkDiscountType === "FLAT" || payLinkDiscountType === "PERCENTAGE"
+            ? Number(payLinkDiscountValue) || 0
+            : null,
+        referralCode:
+          payLinkDiscountType === "CODE" ? payLinkReferral.trim() || null : null,
+        notes: payLinkNotes.trim() || null,
+        sendVia,
+        customerEmail: payLinkEmail.trim() || null,
+        customerPhone: payLinkPhone.trim() || null,
+      });
+      setPayLinkResult(res);
+      toast.success("Payment link created.");
+      await load(true);
+      void refreshPendingBadge({ silentToast: true });
+    } catch (e: unknown) {
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : "Failed to create payment link. Confirm the backend endpoint is live."
+      );
+    } finally {
+      setPayLinkLoading(false);
+    }
+  }
+
+  async function handleCopyPayLink() {
+    if (!payLinkResult?.paymentLinkUrl) return;
+    try {
+      await navigator.clipboard.writeText(payLinkResult.paymentLinkUrl);
+      toast.success("Payment link copied.");
+    } catch {
+      toast.error("Could not copy link.");
+    }
+  }
+
+  async function handleResendPayLink(medium: PaymentLinkSendVia) {
+    if (!org || !payLinkResult?.paymentId) {
+      toast.error("Payment id missing — copy the link and send it manually.");
+      return;
+    }
+    setPayLinkResending(medium);
+    try {
+      const res = await resendOrganizationPaymentLink(
+        org.organization.id,
+        payLinkResult.paymentId,
+        medium
+      );
+      if (res.paymentLinkUrl) {
+        setPayLinkResult((prev) => (prev ? { ...prev, paymentLinkUrl: res.paymentLinkUrl! } : prev));
+      }
+      toast.success(
+        medium === "email"
+          ? "Link resent by email."
+          : medium === "whatsapp"
+            ? "Link resent on WhatsApp."
+            : "Link resent by SMS."
+      );
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Resend failed.");
+    } finally {
+      setPayLinkResending(null);
+    }
+  }
+
 
   async function handleConvertTrial() {
     if (!org) return;
@@ -478,6 +672,29 @@ export default function OrgDetailPage() {
       toast.error(e instanceof Error ? e.message : "Failed to convert trial.");
     } finally {
       setConvertTrialLoading(false);
+    }
+  }
+
+  const WORKSHOP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.mydetailos.com").replace(/\/$/, "");
+
+  async function handleImpersonate() {
+    if (!org) return;
+    setImpersonating(true);
+    try {
+      const res = await impersonateOrganization(org.organization.id);
+      const url =
+        res.loginUrl ||
+        (res.accessToken ? `${WORKSHOP_URL}/login?impersonate=${encodeURIComponent(res.accessToken)}` : null);
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        toast.success("Opened customer session.");
+      } else {
+        toast.success("Impersonation token issued. Open the workshop app.");
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Impersonation is not enabled on the API yet.");
+    } finally {
+      setImpersonating(false);
     }
   }
 
@@ -658,6 +875,8 @@ export default function OrgDetailPage() {
   );
 
   const sub = org.subscription;
+  const payments = org.payments ?? [];
+  const bills = org.bills ?? [];
   const branchLimit = sub.effectiveMaxBranches ?? null;
   const staffLimit = sub.limits.maxStaff ?? null;
 
@@ -820,6 +1039,27 @@ export default function OrgDetailPage() {
                     options={["TRIAL","ACTIVE","PAST_DUE","EXPIRED","CANCELLED"].map((s) => ({ value: s, label: s }))}
                   />
                 </FormField>
+                <FormField label="Term (months)">
+                  <FilterSelect
+                    value={patchTermMonths}
+                    onChange={setPatchTermMonths}
+                    disabled={patching}
+                    fullWidth
+                    options={["1","3","12","24","36","60"].map((s) => ({ value: s, label: s }))}
+                  />
+                </FormField>
+                <FormField label="Expiry date">
+                  <Input type="date" value={patchExpiresAt} onChange={(e) => setPatchExpiresAt(e.target.value)} disabled={patching} />
+                </FormField>
+                <FormField label="Custom max branches">
+                  <Input placeholder="Leave blank for plan default" value={patchMaxBranches} onChange={(e) => setPatchMaxBranches(e.target.value)} disabled={patching} />
+                </FormField>
+                <FormField label="Custom max users">
+                  <Input placeholder="Leave blank for plan default" value={patchMaxUsers} onChange={(e) => setPatchMaxUsers(e.target.value)} disabled={patching} />
+                </FormField>
+                <FormField label="Dedicated billing email">
+                  <Input type="email" placeholder="accounts@client.com" value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)} disabled={patching} />
+                </FormField>
                 <FormField label="Notes (optional)">
                   <Input placeholder="Internal note…" value={patchNotes} onChange={(e) => setPatchNotes(e.target.value)} disabled={patching} />
                 </FormField>
@@ -828,6 +1068,15 @@ export default function OrgDetailPage() {
                     {patching ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save Changes"}
                   </Button>
                 </div>
+                {(() => {
+                  const oldAmt = estimatePlanAmount(sub.planCode, sub.termMonths || 12, pricing);
+                  const credit = prorateCredit({ oldAmount: oldAmt, oldTermMonths: sub.termMonths || 12, daysRemaining: sub.daysRemaining });
+                  return (
+                    <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)" }}>
+                      Mid-cycle upgrade credit (unused term): {formatCurrency(credit, pricing?.currency)} — apply when changing plan.
+                    </p>
+                  );
+                })()}
               </OrgCardBody>
             </OrgCard>
 
@@ -854,6 +1103,21 @@ export default function OrgDetailPage() {
                       </span>
                     </span>
                     {exportingZip && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleImpersonate}
+                    disabled={impersonating || lifecycleLoading}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(59,130,246,0.1)", border: "1px solid var(--border)", borderRadius: 10, cursor: impersonating ? "not-allowed" : "pointer", textAlign: "left", opacity: impersonating ? 0.7 : 1 }}
+                  >
+                    <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(59,130,246,0.18)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <LogIn style={{ width: 16, height: 16, color: "#2563eb" }} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{impersonating ? "Opening…" : "Login as Customer"}</span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Support impersonation (requires backend)</span>
+                    </span>
                   </button>
 
                   <button
@@ -896,6 +1160,25 @@ export default function OrgDetailPage() {
                     {convertTrialLoading && <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />}
                   </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={openPayLink}
+                    disabled={payLinkLoading || lifecycleLoading}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(80,176,160,0.14)", border: "1px solid #B8E0D8", borderRadius: 10, cursor: payLinkLoading ? "not-allowed" : "pointer", opacity: payLinkLoading ? 0.7 : 1, textAlign: "left" }}
+                  >
+                    <span style={{ flexShrink: 0, width: 34, height: 34, background: "rgba(80,176,160,0.22)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Link2 style={{ width: 16, height: 16, color: "#3D8F82" }} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                        Send payment link
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                        Owner pays online for a chosen plan (email / SMS / WhatsApp)
+                      </span>
+                    </span>
+                  </button>
 
                   <button
                     type="button"
@@ -961,20 +1244,20 @@ export default function OrgDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 20 }}>
             {/* Payments */}
             <OrgCard>
-              <OrgCardHeader title="Payments" subtitle={`${org.payments.length} record${org.payments.length !== 1 ? "s" : ""}`} />
+              <OrgCardHeader title="Payments" subtitle={`${payments.length} record${payments.length !== 1 ? "s" : ""}`} />
               <OrgCardBody>
-                {org.payments.length === 0 ? (
+                {payments.length === 0 ? (
                   <EmptyState icon={CreditCard} message="No payments recorded yet." />
                 ) : (
                   <InlineTable heads={[{ label: "Amount" }, { label: "Method" }, { label: "Status" }, { label: "Date" }, { label: "" }]}>
-                    {org.payments.map((p: SubscriptionPaymentRow, idx: number) => (
+                    {payments.map((p: SubscriptionPaymentRow, idx: number) => (
                       <InlineRow key={p.id} idx={idx}>
                         <InlineTd bold>{p.amount != null ? formatCurrency(p.amount, p.currency) : "—"}</InlineTd>
                         <InlineTd muted>{p.method ?? "—"}</InlineTd>
                         <InlineTd><PaymentStatusBadge status={p.status} /></InlineTd>
                         <InlineTd muted>{formatDateTime(p.createdAt)}</InlineTd>
                         <InlineTd>
-                          {(p.status === "PENDING" || p.status === "PROCESSING") && (
+                          {needsManualPaymentReview(p) && (
                             <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                               <Button
                                 size="sm"
@@ -1008,13 +1291,13 @@ export default function OrgDetailPage() {
 
             {/* Bills */}
             <OrgCard>
-              <OrgCardHeader title="Bills" subtitle={`${org.bills.length} record${org.bills.length !== 1 ? "s" : ""}`} />
+              <OrgCardHeader title="Bills" subtitle={`${bills.length} record${bills.length !== 1 ? "s" : ""}`} />
               <OrgCardBody>
-                {org.bills.length === 0 ? (
+                {bills.length === 0 ? (
                   <EmptyState icon={FileText} message="No bills generated yet." />
                 ) : (
-                  <InlineTable heads={[{ label: "Bill #" }, { label: "Plan" }, { label: "Term" }, { label: "Base", align: "right" }, { label: "GST", align: "right" }, { label: "Total", align: "right" }, { label: "Payment" }]}>
-                    {org.bills.map((b: SubscriptionBillRow, idx: number) => (
+                  <InlineTable heads={[{ label: "Bill #" }, { label: "Plan" }, { label: "Term" }, { label: "Base", align: "right" }, { label: "GST", align: "right" }, { label: "Total", align: "right" }, { label: "Payment" }, { label: "Tax PDF" }]}>
+                    {bills.map((b: SubscriptionBillRow, idx: number) => (
                       <InlineRow key={b.id} idx={idx}>
                         <InlineTd bold>{b.billNumber}</InlineTd>
                         <InlineTd muted>{b.planName}</InlineTd>
@@ -1023,6 +1306,9 @@ export default function OrgDetailPage() {
                         <InlineTd align="right" muted>{formatCurrency(b.gstAmount, b.currency)}</InlineTd>
                         <InlineTd align="right" bold>{formatCurrency(b.totalAmount, b.currency)}</InlineTd>
                         <InlineTd><PaymentStatusBadge status={b.paymentStatus} /></InlineTd>
+                        <InlineTd>
+                          <button type="button" onClick={() => downloadTaxInvoicePdf(b, org.organization.name)} style={{ fontSize: 12, color: "#50B0A0", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>PDF</button>
+                        </InlineTd>
                       </InlineRow>
                     ))}
                   </InlineTable>
@@ -1243,6 +1529,277 @@ export default function OrgDetailPage() {
 
         </div>
       </div>
+
+      {/* Send Payment Link Modal */}
+      {payLinkOpen && org && (() => {
+        const quote = estimateCheckoutQuote(
+          payLinkPlan,
+          Number(payLinkTerm),
+          pricing,
+          {
+            extraBranches: Number(payLinkExtraBranches) || 0,
+            extraUsers: Number(payLinkExtraUsers) || 0,
+            discountType: payLinkDiscountType,
+            discountValue: Number(payLinkDiscountValue) || 0,
+            isFirstSubscription: org.subscription.status === "TRIAL" || !bills.length,
+          }
+        );
+        const softLabel: React.CSSProperties = {
+          fontSize: 13,
+          fontWeight: 500,
+          color: "var(--foreground)",
+          marginBottom: 6,
+        };
+        const sectionTitle: React.CSSProperties = {
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--muted-foreground)",
+          margin: "0 0 10px",
+          letterSpacing: "0.02em",
+        };
+        return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+          <div style={{ background: "var(--card)", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", width: "100%", maxWidth: 780, overflow: "hidden", border: "1px solid var(--border)" }}>
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: "var(--foreground)" }}>Send payment link</h2>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted-foreground)" }}>
+                  For <strong style={{ color: "var(--foreground)", fontWeight: 600 }}>{org.organization.name}</strong> — they pay online; plan activates after payment.
+                </p>
+              </div>
+              {!payLinkResult && (
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Amount due</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#3D8F82" }}>{formatCurrency(quote.finalAmount, quote.currency)}</div>
+                </div>
+              )}
+            </div>
+
+            {!payLinkResult ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-[1.35fr_0.9fr]" style={{ gap: 0 }}>
+                  <div className="md:border-r md:border-[var(--border)]" style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div>
+                      <p style={sectionTitle}>1. Plan</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
+                        <div>
+                          <div style={softLabel}>Plan</div>
+                          <FilterSelect
+                            value={payLinkPlan}
+                            onChange={(v) => setPayLinkPlan(v as PlanCode)}
+                            disabled={payLinkLoading}
+                            fullWidth
+                            options={
+                              planOptions.some((o) => o.value === payLinkPlan)
+                                ? planOptions
+                                : [{ value: payLinkPlan, label: payLinkPlan }, ...planOptions]
+                            }
+                          />
+                        </div>
+                        <div>
+                          <div style={softLabel}>Billing term</div>
+                          <FilterSelect
+                            value={payLinkTerm}
+                            onChange={(v) => setPayLinkTerm(v as typeof payLinkTerm)}
+                            disabled={payLinkLoading}
+                            fullWidth
+                            options={[
+                              { value: "1", label: "Monthly" },
+                              { value: "3", label: "Quarterly" },
+                              { value: "12", label: "1 Year" },
+                              { value: "24", label: "2 Years" },
+                              { value: "36", label: "3 Years" },
+                              { value: "60", label: "5 Years" },
+                            ]}
+                          />
+                        </div>
+                        <div>
+                          <div style={softLabel}>Extra branches</div>
+                          <Input type="number" min={0} value={payLinkExtraBranches} onChange={(e) => setPayLinkExtraBranches(e.target.value)} disabled={payLinkLoading} />
+                        </div>
+                        <div>
+                          <div style={softLabel}>Extra users</div>
+                          <Input type="number" min={0} value={payLinkExtraUsers} onChange={(e) => setPayLinkExtraUsers(e.target.value)} disabled={payLinkLoading} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p style={sectionTitle}>2. Discount</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <div style={softLabel}>Discount type</div>
+                          <FilterSelect
+                            value={payLinkDiscountType}
+                            onChange={(v) => setPayLinkDiscountType(v as PaymentLinkDiscountType)}
+                            disabled={payLinkLoading}
+                            fullWidth
+                            options={[
+                              { value: "NONE", label: "No discount" },
+                              { value: "FLAT", label: "Flat amount (₹)" },
+                              { value: "PERCENTAGE", label: "Percentage (%)" },
+                              { value: "CODE", label: "Referral / coupon code" },
+                            ]}
+                          />
+                        </div>
+                        {(payLinkDiscountType === "FLAT" || payLinkDiscountType === "PERCENTAGE") && (
+                          <div>
+                            <div style={softLabel}>
+                              {payLinkDiscountType === "FLAT" ? "Discount amount (₹)" : "Discount percent (%)"}
+                            </div>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={payLinkDiscountType === "PERCENTAGE" ? 100 : undefined}
+                              placeholder={payLinkDiscountType === "FLAT" ? "e.g. 1000" : "e.g. 10"}
+                              value={payLinkDiscountValue}
+                              onChange={(e) => setPayLinkDiscountValue(e.target.value)}
+                              disabled={payLinkLoading}
+                            />
+                          </div>
+                        )}
+                        {payLinkDiscountType === "CODE" && (
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <div style={softLabel}>Referral or coupon code</div>
+                            <Input
+                              placeholder="e.g. REFA89F2"
+                              value={payLinkReferral}
+                              onChange={(e) => setPayLinkReferral(e.target.value.toUpperCase())}
+                              disabled={payLinkLoading}
+                            />
+                            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted-foreground)" }}>
+                              Uses the code’s configured discount from Referrals.
+                            </p>
+                          </div>
+                        )}
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <div style={softLabel}>Internal note <span style={{ fontWeight: 400, color: "var(--muted-foreground)" }}>(optional)</span></div>
+                          <Input placeholder="e.g. Inbound call — Growth annual with 10% off" value={payLinkNotes} onChange={(e) => setPayLinkNotes(e.target.value)} disabled={payLinkLoading} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p style={sectionTitle}>3. Send to owner</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
+                        <div>
+                          <div style={softLabel}>Email</div>
+                          <Input type="email" value={payLinkEmail} onChange={(e) => setPayLinkEmail(e.target.value)} disabled={payLinkLoading} />
+                        </div>
+                        <div>
+                          <div style={softLabel}>Phone</div>
+                          <Input value={payLinkPhone} onChange={(e) => setPayLinkPhone(e.target.value)} disabled={payLinkLoading} />
+                        </div>
+                        <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {(
+                            [
+                              { key: "email" as const, label: "Email", checked: payLinkSendEmail, set: setPayLinkSendEmail },
+                              { key: "sms" as const, label: "SMS", checked: payLinkSendSms, set: setPayLinkSendSms },
+                              { key: "whatsapp" as const, label: "WhatsApp", checked: payLinkSendWhatsapp, set: setPayLinkSendWhatsapp },
+                            ]
+                          ).map((ch) => (
+                            <label
+                              key={ch.key}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 8,
+                                height: 34,
+                                padding: "0 12px",
+                                borderRadius: 8,
+                                border: `1px solid ${ch.checked ? "#A8D9D0" : "var(--border)"}`,
+                                background: ch.checked ? "#EFF8F6" : "transparent",
+                                fontSize: 13,
+                                fontWeight: 500,
+                                cursor: "pointer",
+                                color: "var(--foreground)",
+                              }}
+                            >
+                              <input type="checkbox" checked={ch.checked} onChange={(e) => ch.set(e.target.checked)} disabled={payLinkLoading} />
+                              {ch.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "18px 22px", background: "var(--secondary)" }}>
+                    <p style={sectionTitle}>Price summary</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                      {[
+                        ["Plan", formatCurrency(quote.baseAmount, quote.currency)],
+                        ...(quote.extraBranchCost + quote.extraUserCost > 0
+                          ? [["Extras", formatCurrency(quote.extraBranchCost + quote.extraUserCost, quote.currency)] as const]
+                          : []),
+                        ...(quote.onboardingFee > 0
+                          ? [["Onboarding", formatCurrency(quote.onboardingFee, quote.currency)] as const]
+                          : []),
+                        [quote.discountLabel, quote.referralDiscount > 0 ? `−${formatCurrency(quote.referralDiscount, quote.currency)}` : "—"],
+                        [`GST (${quote.gstPercent}%)`, formatCurrency(quote.gstAmount, quote.currency)],
+                      ].map(([label, value]) => (
+                        <div key={String(label)} style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--muted-foreground)" }}>
+                          <span>{label}</span>
+                          <span style={{ color: "var(--foreground)", fontWeight: 500 }}>{value}</span>
+                        </div>
+                      ))}
+                      <div style={{ borderTop: "1px solid var(--border)", marginTop: 4, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ fontWeight: 600, color: "var(--foreground)" }}>Total</span>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: "#3D8F82" }}>{formatCurrency(quote.finalAmount, quote.currency)}</span>
+                      </div>
+                    </div>
+                    <p style={{ margin: "14px 0 0", fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.45 }}>
+                      Gateway confirms the final charged amount. After payment, the subscription updates automatically.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ padding: "14px 22px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)" }}>
+                  <Button variant="outline" onClick={() => setPayLinkOpen(false)} disabled={payLinkLoading} style={{ minWidth: 100 }}>Cancel</Button>
+                  <Button onClick={handleCreatePayLink} disabled={payLinkLoading} className="min-w-40">
+                    {payLinkLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</> : "Generate & send"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ padding: "14px 20px", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 8 }}>
+                      Amount <strong style={{ color: "var(--foreground)" }}>{formatCurrency(payLinkResult.amount, payLinkResult.currency)}</strong>
+                      {payLinkResult.gateway ? ` · ${payLinkResult.gateway}` : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <Input readOnly value={payLinkResult.paymentLinkUrl} style={{ fontSize: 12 }} />
+                      <Button type="button" variant="outline" size="sm" onClick={handleCopyPayLink} aria-label="Copy link">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => window.open(payLinkResult.paymentLinkUrl, "_blank", "noopener,noreferrer")} aria-label="Open link">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <Button type="button" variant="outline" size="sm" disabled={!!payLinkResending || !payLinkResult.paymentId} onClick={() => handleResendPayLink("email")}>
+                      {payLinkResending === "email" ? "Sending…" : "Resend email"}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" disabled={!!payLinkResending || !payLinkResult.paymentId} onClick={() => handleResendPayLink("sms")}>
+                      {payLinkResending === "sms" ? "Sending…" : "Resend SMS"}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" disabled={!!payLinkResending || !payLinkResult.paymentId} onClick={() => handleResendPayLink("whatsapp")}>
+                      {payLinkResending === "whatsapp" ? "Sending…" : "Resend WhatsApp"}
+                    </Button>
+                  </div>
+                </div>
+                <div style={{ padding: "12px 20px 16px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)" }}>
+                  <Button variant="outline" onClick={() => { setPayLinkResult(null); }}>Create another</Button>
+                  <Button onClick={() => setPayLinkOpen(false)}>Done</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        );
+      })()}
 
       {/* Mark Paid Modal */}
       {markPaidOpen && (
