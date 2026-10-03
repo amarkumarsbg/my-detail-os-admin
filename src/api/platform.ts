@@ -244,6 +244,61 @@ export async function patchPlatformReferral(
   return apiClient.patch(`/api/platform/referrals/${id}`, input);
 }
 
+// ─── Marketing banners ────────────────────────────────────────────────────────
+
+export type MarketingBannerAudience = "TRIAL" | "ACTIVE" | "ALL";
+
+export interface PlatformMarketingBanner {
+  id: string;
+  title: string;
+  body: string;
+  audience: MarketingBannerAudience;
+  enabled: boolean;
+  ctaLabel: string;
+  ctaUrl: string;
+  sortOrder: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listPlatformBanners(): Promise<{
+  banners: PlatformMarketingBanner[];
+  total: number;
+}> {
+  return apiClient.get("/api/platform/banners");
+}
+
+export async function createPlatformBanner(input: {
+  title: string;
+  body?: string;
+  audience?: MarketingBannerAudience;
+  enabled?: boolean;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}): Promise<PlatformMarketingBanner> {
+  return apiClient.post("/api/platform/banners", input);
+}
+
+export async function patchPlatformBanner(
+  id: string,
+  input: Partial<{
+    title: string;
+    body: string;
+    audience: MarketingBannerAudience;
+    enabled: boolean;
+    ctaLabel: string;
+    ctaUrl: string;
+    sortOrder: number;
+  }>
+): Promise<PlatformMarketingBanner> {
+  return apiClient.patch(`/api/platform/banners/${encodeURIComponent(id)}`, input);
+}
+
+export async function deletePlatformBanner(id: string): Promise<{ deleted: boolean; id: string }> {
+  return apiClient.delete(`/api/platform/banners/${encodeURIComponent(id)}`);
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export interface PlatformDashboard {
