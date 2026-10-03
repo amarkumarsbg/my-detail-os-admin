@@ -707,6 +707,61 @@ export async function replyPlatformSupportTicket(
   return apiClient.post(`/api/platform/support-tickets/${id}/reply`, input);
 }
 
+// ─── Demo requests (workshop Request a Demo) ──────────────────────────────────
+
+export type PlatformDemoRequestStatus = "SCHEDULED" | "CANCELLED" | "COMPLETED";
+
+export interface PlatformDemoRequest {
+  id: string;
+  fullName: string;
+  mobile: string;
+  workshopName: string;
+  city: string;
+  interests: string;
+  slotDate: string;
+  slotLabel: string;
+  status: PlatformDemoRequestStatus;
+  createdByUserId?: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export async function listPlatformDemoRequests(params?: {
+  limit?: number;
+  search?: string;
+  status?: string;
+  organizationId?: string;
+}): Promise<{
+  demos: PlatformDemoRequest[];
+  total: number;
+  scheduledCount: number;
+}> {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.search) qs.set("search", params.search);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.organizationId) qs.set("organizationId", params.organizationId);
+  const q = qs.toString();
+  return apiClient.get(`/api/platform/demo-requests${q ? `?${q}` : ""}`);
+}
+
+export async function getPlatformDemoRequest(id: string): Promise<{
+  demo: PlatformDemoRequest;
+  organization: { id: string; name: string; slug: string } | null;
+}> {
+  return apiClient.get(`/api/platform/demo-requests/${id}`);
+}
+
+export async function patchPlatformDemoRequest(
+  id: string,
+  input: { status?: PlatformDemoRequestStatus; notes?: string }
+): Promise<{ demo: PlatformDemoRequest }> {
+  return apiClient.patch(`/api/platform/demo-requests/${id}`, input);
+}
+
 // ─── Suspend / Restore ────────────────────────────────────────────────────────
 
 export async function suspendOrg(orgId: string, reason: string): Promise<{ suspended: boolean; reason: string }> {

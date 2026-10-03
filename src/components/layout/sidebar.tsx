@@ -8,6 +8,7 @@ import { useAuthStore, canAccessNav } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import { useSupportTicketsStore } from "@/store/support-tickets-store";
+import { useDemoRequestsStore } from "@/store/demo-requests-store";
 
 const NAV_SECTIONS = [
   {
@@ -33,6 +34,7 @@ const NAV_SECTIONS = [
     label: "Growth",
     items: [
       { label: "Referrals", href: "/referrals", icon: Tag },
+      { label: "Demo Requests", href: "/demo-requests", icon: CalendarClock },
       { label: "Banners", href: "/banners", icon: Megaphone },
     ],
   },
@@ -67,6 +69,8 @@ export function Sidebar() {
   const startPaymentPolling = usePendingPaymentsStore((s) => s.startPolling);
   const supportUnreadCount = useSupportTicketsStore((s) => s.unreadCount);
   const startSupportPolling = useSupportTicketsStore((s) => s.startPolling);
+  const demoUnreadCount = useDemoRequestsStore((s) => s.unreadCount);
+  const startDemoPolling = useDemoRequestsStore((s) => s.startPolling);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -79,6 +83,7 @@ export function Sidebar() {
 
   useEffect(() => startPaymentPolling(), [startPaymentPolling]);
   useEffect(() => startSupportPolling(), [startSupportPolling]);
+  useEffect(() => startDemoPolling(), [startDemoPolling]);
 
   // On mobile always show full sidebar; collapsed only applies on desktop
   const W = (collapsed && !isMobile) ? "56px" : "260px";
@@ -198,11 +203,15 @@ export function Sidebar() {
                       ? supportUnreadCount > 99
                         ? "99+"
                         : String(supportUnreadCount)
-                      : null;
+                      : href === "/demo-requests" && demoUnreadCount > 0
+                        ? demoUnreadCount > 99
+                          ? "99+"
+                          : String(demoUnreadCount)
+                        : null;
                 const badgeKind =
                   href === "/payments"
                     ? "pending"
-                    : href === "/support-tickets"
+                    : href === "/support-tickets" || href === "/demo-requests"
                       ? "unread"
                       : null;
                 const navHref =

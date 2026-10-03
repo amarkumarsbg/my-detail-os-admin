@@ -2,15 +2,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, PanelLeft, Sun, Moon, Menu, CreditCard, LifeBuoy } from "lucide-react";
+import { Bell, PanelLeft, Sun, Moon, Menu, CreditCard, LifeBuoy, CalendarClock } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
 import { useSupportTicketsStore } from "@/store/support-tickets-store";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useDemoRequestsStore } from "@/store/demo-requests-store";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 const PAYMENTS_REVIEW_HREF = "/payments?status=review";
 const SUPPORT_HREF = "/support-tickets";
+const DEMOS_HREF = "/demo-requests";
 
 interface TopbarProps { title?: string; description?: string; actions?: ReactNode; }
 
@@ -30,11 +32,17 @@ export function Topbar({ title, description, actions }: TopbarProps) {
   const refreshSupport = useSupportTicketsStore((s) => s.refresh);
   const markSupportSeen = useSupportTicketsStore((s) => s.markSeen);
 
+  const demoScheduledCount = useDemoRequestsStore((s) => s.scheduledCount);
+  const demoUnread = useDemoRequestsStore((s) => s.unreadCount);
+  const demoItems = useDemoRequestsStore((s) => s.items);
+  const refreshDemos = useDemoRequestsStore((s) => s.refresh);
+  const markDemosSeen = useDemoRequestsStore((s) => s.markSeen);
+
   const [dark, setDark] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const unreadTotal = paymentUnread + supportUnread;
+  const unreadTotal = paymentUnread + supportUnread + demoUnread;
 
   useEffect(() => {
     const stored = localStorage.getItem("admin_dark_mode");
@@ -48,9 +56,11 @@ export function Topbar({ title, description, actions }: TopbarProps) {
     void Promise.all([
       refreshPending({ silentToast: true }),
       refreshSupport({ silentToast: true }),
+      refreshDemos({ silentToast: true }),
     ]).then(() => {
       markPaymentsSeen();
       markSupportSeen();
+      markDemosSeen();
     });
 
     function onPointerDown(e: MouseEvent) {
@@ -67,7 +77,15 @@ export function Topbar({ title, description, actions }: TopbarProps) {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [notifOpen, refreshPending, refreshSupport, markPaymentsSeen, markSupportSeen]);
+  }, [
+    notifOpen,
+    refreshPending,
+    refreshSupport,
+    refreshDemos,
+    markPaymentsSeen,
+    markSupportSeen,
+    markDemosSeen,
+  ]);
 
   function toggleDark() {
     const next = !dark;
@@ -88,6 +106,12 @@ export function Topbar({ title, description, actions }: TopbarProps) {
     router.push(ticketId ? `${SUPPORT_HREF}?ticket=${encodeURIComponent(ticketId)}` : SUPPORT_HREF);
   }
 
+  function goToDemos() {
+    markDemosSeen();
+    setNotifOpen(false);
+    router.push(DEMOS_HREF);
+  }
+
   const badgeLabel =
     unreadTotal > 0 ? (unreadTotal > 99 ? "99+" : String(unreadTotal)) : null;
 
@@ -102,8 +126,14 @@ export function Topbar({ title, description, actions }: TopbarProps) {
       `${supportOpenCount} open support ticket${supportOpenCount === 1 ? "" : "s"}`
     );
   }
+  if (demoScheduledCount > 0) {
+    summaryParts.push(
+      `${demoScheduledCount} scheduled demo${demoScheduledCount === 1 ? "" : "s"}`
+    );
+  }
   const summaryText = summaryParts.length > 0 ? summaryParts.join(" · ") : "You're all caught up";
-  const hasAnyItems = pendingItems.length > 0 || supportItems.length > 0;
+  const hasAnyItems =
+    pendingItems.length > 0 || supportItems.length > 0 || demoItems.length > 0;
 
   return (
     <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, padding: "0 16px", background: "var(--topbar-bg)", borderBottom: "1px solid var(--topbar-border)", flexShrink: 0, gap: 8, transition: "background 0.2s, border-color 0.2s" }}
@@ -253,10 +283,75 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                       fontSize: 13,
                     }}
                   >
-                    No pending payments or support replies right now.
+                    No pending payments, demos, or support replies right now.
                   </div>
                 ) : (
                   <>
+                    {demoItems.map((item) => (
+                      <button
+                        key={`demo-${item.id}`}
+                        type="button"
+                        onClick={goToDemos}
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "none",
+                          borderBottom: "1px solid var(--border)",
+                          background: "transparent",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          color: "inherit",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: "#EFF8F6",
+                            border: "1px solid #A8D9D0",
+                            color: "#3D8F82",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CalendarClock style={{ width: 14, height: 14 }} />
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "var(--foreground)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {item.workshopName || "Demo request"}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted-foreground)" }}>
+                            {formatDate(item.slotDate)} · {item.slotLabel}
+                          </p>
+                          <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }}>
+                            {item.fullName}
+                            {item.city ? ` · ${item.city}` : ""}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+
                     {supportItems.map((item) => (
                       <button
                         key={`support-${item.id}`}
@@ -399,7 +494,7 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                 )}
               </div>
 
-              {(supportOpenCount > 0 || pendingCount > 0) && (
+              {(supportOpenCount > 0 || pendingCount > 0 || demoScheduledCount > 0) && (
                 <div
                   style={{
                     padding: "10px 14px",
@@ -409,6 +504,26 @@ export function Topbar({ title, description, actions }: TopbarProps) {
                     gap: 8,
                   }}
                 >
+                  {demoScheduledCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={goToDemos}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "center",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#50B0A0",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      Open demo requests →
+                    </button>
+                  )}
                   {supportOpenCount > 0 && (
                     <button
                       type="button"

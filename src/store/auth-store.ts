@@ -70,6 +70,7 @@ export function canAccessNav(role: string | undefined, href: string): boolean {
       "/upcoming-renewals",
       "/contacts",
       "/support-tickets",
+      "/demo-requests",
       "/referrals",
     ].some((p) => href === p || href.startsWith(`${p}/`));
   }
