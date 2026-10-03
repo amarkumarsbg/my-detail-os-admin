@@ -20,16 +20,6 @@ export interface FeatureFlag {
   organizationIds: string[];
 }
 
-export interface AffiliatePartner {
-  id: string;
-  name: string;
-  email: string;
-  trackingCode: string;
-  commissionPercent: number;
-  payoutNotes: string;
-  createdAt: string;
-}
-
 export interface DunningConfig {
   graceDays: number;
   dunningDays: number[];
@@ -39,7 +29,6 @@ export interface DunningConfig {
 export interface GrowthConfig {
   banners: MarketingBanner[];
   flags: FeatureFlag[];
-  affiliates: AffiliatePartner[];
   dunning: DunningConfig;
   billingEmails: Record<string, string>;
 }
@@ -47,7 +36,6 @@ export interface GrowthConfig {
 export const DEFAULT_GROWTH: GrowthConfig = {
   banners: [],
   flags: [],
-  affiliates: [],
   dunning: { graceDays: 7, dunningDays: [1, 3, 6], trialDripDays: [3, 1, 0] },
   billingEmails: {},
 };
@@ -61,7 +49,6 @@ export function loadGrowthConfig(): GrowthConfig {
     return {
       banners: parsed.banners ?? [],
       flags: parsed.flags ?? [],
-      affiliates: parsed.affiliates ?? [],
       dunning: { ...DEFAULT_GROWTH.dunning, ...parsed.dunning },
       billingEmails: parsed.billingEmails ?? {},
     };

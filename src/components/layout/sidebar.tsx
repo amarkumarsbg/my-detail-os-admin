@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Handshake, Flag } from "lucide-react";
+import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Flag } from "lucide-react";
 import { useAuthStore, canAccessNav } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
@@ -32,7 +32,6 @@ const NAV_SECTIONS = [
     label: "Growth",
     items: [
       { label: "Referrals", href: "/referrals", icon: Tag },
-      { label: "Affiliates", href: "/affiliates", icon: Handshake },
       { label: "Banners", href: "/banners", icon: Megaphone },
     ],
   },

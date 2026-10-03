@@ -12,12 +12,15 @@ import {
   listPlatformReferrals,
   createPlatformReferral,
   patchPlatformReferral,
+  listPlatformReferralWallets,
   type PlatformReferralCode,
+  type PlatformReferralWallet,
 } from "@/api/platform";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function ReferralsPage() {
   const [codes, setCodes] = useState<PlatformReferralCode[]>([]);
+  const [wallets, setWallets] = useState<PlatformReferralWallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +36,12 @@ export default function ReferralsPage() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const res = await listPlatformReferrals(showInactive);
+      const [res, w] = await Promise.all([
+        listPlatformReferrals(showInactive),
+        listPlatformReferralWallets().catch(() => ({ wallets: [] as PlatformReferralWallet[] })),
+      ]);
       setCodes(res.referralCodes);
+      setWallets(w.wallets);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -85,7 +92,7 @@ export default function ReferralsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <RefreshingBar show={refreshing} />
-      <Topbar title="Referral Codes" description="Subscription referral code management" />
+      <Topbar title="Referral & Affiliate" description="Codes, referee discount at checkout, and +500 referrer points after paid conversion" />
       {showForm && (
         <div style={{ padding: "12px 24px", borderBottom: "1px solid var(--border)", background: "var(--card)" }}>
           <form onSubmit={handleCreate} style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "flex-end" }}>
@@ -129,12 +136,13 @@ export default function ReferralsPage() {
         ) : (
           <>
             <AdminTable>
-              <THead><tr><Th>Code</Th><Th>Discount</Th><Th>Status</Th><Th>Created By</Th><Th>Notes</Th><Th>Created</Th><Th></Th></tr></THead>
+              <THead><tr><Th>Code</Th><Th>Discount</Th><Th>Owner org</Th><Th>Status</Th><Th>Created By</Th><Th>Notes</Th><Th>Created</Th><Th></Th></tr></THead>
               <TBody>
                 {codes.map((c) => (
                   <Tr key={c.id}>
                     <Td><span style={{ fontFamily: "monospace", fontWeight: 600, letterSpacing: "0.04em" }}>{c.code}</span></Td>
                     <Td><span style={{ color: "#16a34a", fontWeight: 500 }}>{formatCurrency(c.discountAmount)}</span></Td>
+                    <Td muted>{c.organizationName ?? "Platform"}</Td>
                     <Td><span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: "99px", fontSize: "11px", fontWeight: 600, background: c.isActive ? "#f0fdf4" : "#f8fafc", color: c.isActive ? "#16a34a" : "#94a3b8", border: `1px solid ${c.isActive ? "#bbf7d0" : "#e2e8f0"}` }}>{c.isActive ? "Active" : "Inactive"}</span></Td>
                     <Td muted>{c.createdBy}</Td>
                     <Td muted>{c.notes ?? "—"}</Td>
@@ -163,6 +171,32 @@ export default function ReferralsPage() {
             <TableFooter showing={codes.length} total={codes.length} label="codes" />
           </>
         )}
+
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Referral wallets</h2>
+          <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 10 }}>
+            Referrers earn +500 points when a referred workshop’s first subscription payment is marked Paid.
+          </p>
+          {wallets.length === 0 ? (
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px" }}>
+              <EmptyState icon={Tag} title="No wallet credits yet" description="Points appear here after a referred org completes first paid conversion." />
+            </div>
+          ) : (
+            <AdminTable>
+              <THead><tr><Th>Organization</Th><Th>Points</Th><Th>Latest</Th><Th>Updated</Th></tr></THead>
+              <TBody>
+                {wallets.map((w) => (
+                  <Tr key={w.id}>
+                    <Td bold>{w.organizationName}</Td>
+                    <Td>{w.points}</Td>
+                    <Td muted>{w.transactions[0]?.notes ?? "—"}</Td>
+                    <Td muted nowrap>{formatDate(w.updatedAt)}</Td>
+                  </Tr>
+                ))}
+              </TBody>
+            </AdminTable>
+          )}
+        </div>
       </div>
     </div>
   );

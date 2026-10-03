@@ -191,8 +191,35 @@ export interface PlatformReferralCode {
   isActive: boolean;
   createdBy: string;
   notes: string | null;
+  organizationId?: string | null;
+  organizationName?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PlatformReferralWallet {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  points: number;
+  updatedAt: string;
+  transactions: Array<{
+    id: string;
+    type: string;
+    points: number;
+    amountInr: number;
+    referralCode: string;
+    sourceOrganizationId: string | null;
+    paymentId: string | null;
+    notes: string | null;
+    createdAt: string;
+  }>;
+}
+
+export async function listPlatformReferralWallets(): Promise<{
+  wallets: PlatformReferralWallet[];
+}> {
+  return apiClient.get("/api/platform/referral-wallets");
 }
 
 export async function listPlatformReferrals(showInactive = false): Promise<{
