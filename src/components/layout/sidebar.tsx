@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Handshake, Flag } from "lucide-react";
+import { X, LayoutDashboard, Building2, CreditCard, FileText, RefreshCw, Receipt, Tag, ClipboardList, LogOut, Settings, Mail, Timer, CalendarClock, Megaphone, Handshake, Flag, PanelLeftClose } from "lucide-react";
 import { useAuthStore, canAccessNav } from "@/store/auth-store";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { usePendingPaymentsStore } from "@/store/pending-payments-store";
@@ -61,7 +61,7 @@ function isActive(pathname: string, href: string) {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, clearSession } = useAuthStore();
-  const { collapsed, closeMobile } = useSidebarStore();
+  const { collapsed, closeMobile, collapse } = useSidebarStore();
   const pendingPayments = usePendingPaymentsStore((s) => s.count);
   const startPolling = usePendingPaymentsStore((s) => s.startPolling);
   const [isMobile, setIsMobile] = useState(false);
@@ -164,6 +164,21 @@ export function Sidebar() {
         >
           <X style={{ width: 16, height: 16 }} />
         </button>
+        {/* Collapse to icons — desktop only */}
+        {!isCollapsed && (
+          <button
+            type="button"
+            aria-label="Collapse sidebar"
+            title="Collapse menu"
+            onClick={collapse}
+            className="hidden md:flex"
+            style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", flexShrink: 0 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+          >
+            <PanelLeftClose style={{ width: 16, height: 16 }} />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
