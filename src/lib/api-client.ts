@@ -24,18 +24,24 @@ export class ApiError extends Error {
   }
 }
 
+type RequestOptions = RequestInit & {
+  /** When true, do not attach the stored Bearer token (e.g. login). */
+  skipAuth?: boolean;
+};
+
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestOptions = {}
 ): Promise<T> {
-  const token = getToken();
+  const { skipAuth, ...init } = options;
+  const token = skipAuth ? null : getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string> ?? {}),
+    ...(init.headers as Record<string, string> ?? {}),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
   const json = (await res.json().catch(() => null)) as ApiResponse<T> | null;
 
@@ -45,15 +51,27 @@ async function request<T>(
     throw new ApiError(res.status, msg, code);
   }
 
-  // The backend wraps everything in { data, error }
-  if (json && "data" in json) return json.data as T;
-  return json as unknown as T;
+  // Backend wraps everything in { data, error }. Reject empty/error payloads
+  // even if the HTTP status is unexpectedly 200.
+  if (json && "data" in json) {
+    if (json.error || json.data == null) {
+      const msg = json.error?.message ?? "Invalid email or password";
+      throw new ApiError(401, msg, json.error?.code);
+    }
+    return json.data as T;
+  }
+  throw new ApiError(res.status || 500, "Unexpected API response");
 }
 
 export const apiClient = {
-  get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body != null ? JSON.stringify(body) : undefined }),
+  get: <T>(path: string, opts?: { skipAuth?: boolean }) =>
+    request<T>(path, { method: "GET", skipAuth: opts?.skipAuth }),
+  post: <T>(path: string, body?: unknown, opts?: { skipAuth?: boolean }) =>
+    request<T>(path, {
+      method: "POST",
+      body: body != null ? JSON.stringify(body) : undefined,
+      skipAuth: opts?.skipAuth,
+    }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: body != null ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>

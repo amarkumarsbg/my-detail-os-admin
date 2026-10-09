@@ -10,7 +10,6 @@ import {
   LifeBuoy,
   Mic,
   MicOff,
-  MoreVertical,
   Paperclip,
   Search,
   Send,
@@ -479,29 +478,8 @@ export default function SupportTicketsPage() {
               background: "var(--card)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
-                Chats
-              </div>
-              <button
-                type="button"
-                aria-label="Refresh chats"
-                onClick={() => void loadList(true)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  color: "#54656f",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MoreVertical size={18} />
-              </button>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
+              Chats
             </div>
             <div style={{ position: "relative" }}>
               <Search

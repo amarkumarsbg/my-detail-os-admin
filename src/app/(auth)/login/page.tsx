@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import { loginAdmin } from "@/api/auth";
+import { getMe, loginAdmin } from "@/api/auth";
 import { useAuthStore, isAdminRole } from "@/store/auth-store";
 import { ApiError } from "@/lib/api-client";
 
@@ -13,25 +12,80 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const setSession = useAuthStore((s) => s.setSession);
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const hydrate = useAuthStore((s) => s.hydrate);
   const router = useRouter();
+
+  // If a stored token is still valid, skip the form. Otherwise clear it.
+  useEffect(() => {
+    let cancelled = false;
+    async function checkExisting() {
+      hydrate();
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      if (!token) {
+        if (!cancelled) setCheckingSession(false);
+        return;
+      }
+      try {
+        const me = await getMe();
+        if (cancelled) return;
+        if (isAdminRole(me.user?.role)) {
+          setSession(token, {
+            id: me.user.id,
+            name: me.user.name,
+            email: me.user.email,
+            role: me.user.role,
+            organizationId: me.user.organizationId ?? null,
+            branchId: me.user.branchId ?? null,
+            mustChangePassword: me.user.mustChangePassword,
+          });
+          router.replace("/dashboard");
+          return;
+        }
+        clearSession();
+      } catch {
+        clearSession();
+      }
+      if (!cancelled) setCheckingSession(false);
+    }
+    void checkExisting();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrate, setSession, clearSession, router]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    // Drop any prior session so a failed attempt cannot leave the portal open.
+    clearSession();
     try {
       const session = await loginAdmin(email.trim(), password);
-      if (!isAdminRole(session.user?.role)) {
-        setError("Access denied. This portal is for PLATFORM_OWNER, SUPER_ADMIN, Sales, and Billing roles.");
+      if (!session?.accessToken || !session.user) {
+        setError("Invalid email or password.");
+        return;
+      }
+      if (!isAdminRole(session.user.role)) {
+        setError(
+          "Access denied. This portal is for PLATFORM_OWNER, SUPER_ADMIN, Sales, and Billing roles."
+        );
         return;
       }
       setSession(session.accessToken, session.user);
       router.replace("/dashboard");
     } catch (err) {
+      clearSession();
       if (err instanceof ApiError) {
-        setError(err.status === 401 ? "Invalid email or password." : err.message);
+        setError(
+          err.status === 401 || err.status === 403
+            ? "Invalid email or password."
+            : err.message
+        );
       } else {
         setError("Cannot connect to the server. Make sure the backend is running.");
       }
@@ -45,6 +99,26 @@ export default function LoginPage() {
     requestAnimationFrame(() => {
       e.target.scrollIntoView({ block: "center", behavior: "smooth" });
     });
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="login-page">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: "#64748b",
+            fontSize: 14,
+          }}
+        >
+          <Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} />
+          Checking session…
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
   return (
