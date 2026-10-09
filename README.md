@@ -1,6 +1,6 @@
 # MY DETAIL OS — SaaS Admin Portal
 
-A separate frontend portal for the MY DETAIL OS **platform owner** (SUPER_ADMIN / PLATFORM_OWNER) to manage all customer organizations, subscriptions, billing, and payments.
+A separate frontend portal for the MY DETAIL OS **platform owner** (`PLATFORM_OWNER` only) to manage all customer organizations, subscriptions, billing, and payments.
 
 ## Architecture
 
@@ -16,10 +16,10 @@ Both frontends share the **same backend** and **same database**. No second backe
 
 ## Authentication
 
-- Login via `POST /api/auth/login` using an account with role **`PLATFORM_OWNER`** or **`SUPER_ADMIN`**.
+- Login via `POST /api/auth/login` using an account with role **`PLATFORM_OWNER` only**.
 - Token stored in `localStorage` under `admin_token`.
 - Platform-level APIs (`/api/platform/*`) require `PLATFORM_OWNER` JWT or `X-Platform-Admin-Key`.
-- `SUPER_ADMIN` can log in but has limited access to platform APIs (backend enforces this).
+- Workshop `SUPER_ADMIN` and other roles are rejected at the portal login gate.
 
 ## API Reference
 
@@ -46,7 +46,7 @@ Open: http://localhost:3001 (or the port shown in terminal)
 
 1. Start the backend: `cd backend && npm run dev`
 2. Start the SaaS Admin: `cd saas-admin && npm run dev`
-3. Log in with a PLATFORM_OWNER or SUPER_ADMIN account.
+3. Log in with a PLATFORM_OWNER account.
 
 ## Production
 

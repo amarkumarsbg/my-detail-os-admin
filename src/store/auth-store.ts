@@ -49,42 +49,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
-const PORTAL_ROLES = new Set([
-  "PLATFORM_OWNER",
-  "SUPER_ADMIN",
-  "SALES_REP",
-  "BILLING_SPEC",
-]);
-
-/** Platform admin portal roles from the operations spec. */
+/** Admin portal is PLATFORM_OWNER only — workshop SUPER_ADMIN and other roles cannot use it. */
 export function isAdminRole(role: string | undefined): boolean {
-  return !!role && PORTAL_ROLES.has(role);
+  return role === "PLATFORM_OWNER";
 }
 
-export function canAccessNav(role: string | undefined, href: string): boolean {
-  if (role === "SALES_REP") {
-    return [
-      "/dashboard",
-      "/organizations",
-      "/free-trials",
-      "/upcoming-renewals",
-      "/contacts",
-      "/support-tickets",
-      "/demo-requests",
-      "/referrals",
-    ].some((p) => href === p || href.startsWith(`${p}/`));
-  }
-  if (role === "BILLING_SPEC") {
-    return [
-      "/dashboard",
-      "/organizations",
-      "/subscriptions",
-      "/payments",
-      "/renewals",
-      "/upcoming-renewals",
-      "/bills",
-      "/plans",
-    ].some((p) => href === p || href.startsWith(`${p}/`));
-  }
-  return true;
+export function canAccessNav(role: string | undefined, _href: string): boolean {
+  return isAdminRole(role);
 }

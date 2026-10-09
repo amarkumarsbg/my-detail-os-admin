@@ -71,9 +71,7 @@ export default function LoginPage() {
         return;
       }
       if (!isAdminRole(session.user.role)) {
-        setError(
-          "Access denied. This portal is for PLATFORM_OWNER, SUPER_ADMIN, Sales, and Billing roles."
-        );
+        setError("Access denied. This portal is for PLATFORM_OWNER only.");
         return;
       }
       setSession(session.accessToken, session.user);
